@@ -1,11 +1,14 @@
 class PokerDeck extends Deck {
   private int pot;
+  private Card[] board;
   public PokerDeck() {
     super();
+    board = new Card[5];
   }
   public void reset() {
     super.reset();
     pot = 0;
+    board = new Card[5];
   }
   public int getPot() {
     return pot;
@@ -14,7 +17,6 @@ class PokerDeck extends Deck {
     pot += c;
   }
   public Card[] deal() {
-    Card[] board = new Card[5];
     for (int i = 0; i < 5; i++) {
       board[i] = super.deal()[0];
     }
@@ -29,4 +31,5 @@ class PokerDeck extends Deck {
     }
     return hands;
   }
+
 }
