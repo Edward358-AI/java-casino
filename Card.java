@@ -5,6 +5,9 @@ public class Card {
     this.value = value;
     String temp = value.substring(0,1);
       switch(temp) {
+        case "T":
+          num = 10;
+          break;
         case "J": 
           num = 11;
           break;

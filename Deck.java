@@ -6,8 +6,8 @@ public class Deck {
   public Deck() {
     String[] temp = { "A♠", "A♣", "A♦", "A♥", "2♠", "2♣", "2♦", "2♥", "3♠", "3♣", "3♦", "3♥", "4♠",
         "4♣", "4♦", "4♥", "5♠", "5♣", "5♦", "5♥", "6♠", "6♣", "6♦", "6♥", "7♠", "7♣",
-        "7♦", "7♥", "8♠", "8♣", "8♦", "8♥", "9♠", "9♣", "9♦", "9♥", "10♠", "10♣",
-        "10♦", "10♥", "J♠", "J♣", "J♦", "J♥", "Q♠", "Q♣", "Q♦", "Q♥", "K♠", "K♣",
+        "7♦", "7♥", "8♠", "8♣", "8♦", "8♥", "9♠", "9♣", "9♦", "9♥", "T♠", "T♣",
+        "T♦", "T♥", "J♠", "J♣", "J♦", "J♥", "Q♠", "Q♣", "Q♦", "Q♥", "K♠", "K♣",
         "K♦", "K♥" };
     for (int i = 0; i < temp.length; i++) {
       deck.add(new Card(temp[i]));
@@ -30,10 +30,10 @@ public class Deck {
     return deck.toArray(new Card[deck.size()]);
   }
 
-  public Card deal() {
+  public Card[] deal() {
     Card r = deck.remove(0);
     removed.add(r);
-    return r;
+    return new Card[]{r};
   }
 
   public void reset() {
