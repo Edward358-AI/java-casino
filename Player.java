@@ -8,8 +8,8 @@ public class Player {
     this.name = name;
     chips = 1000;
   }
-  public void action() {
-
+  public String action() {
+    return "";
   }
 
   public int getChips() {

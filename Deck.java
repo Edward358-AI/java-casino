@@ -11,8 +11,8 @@ public class Deck {
         "K♦", "K♥" };
     for (int i = 0; i < temp.length; i++) {
       deck.add(new Card(temp[i]));
-      Collections.shuffle(deck);
     }
+    Collections.shuffle(deck);
   }
   public void shuffle() {
     Collections.shuffle(deck);
