@@ -40,4 +40,23 @@ public class Deck {
     deck.addAll(removed);
     removed = new ArrayList<Card>();
   }
+
+  public static void sort(Card[] d) {
+    int[] numD = new int[d.length];
+    for (int i = 0; i < d.length; i++) {
+      numD[i] = d[i].getNum();
+    }
+    Arrays.sort(numD);
+    ArrayList<Card> d1 = new ArrayList<Card>(Arrays.asList(d));
+    for (int i = 0; i < d.length; i++) {
+      int index = 0;
+      for (int j = 0; j < d.length; j++) {
+        if (numD[i] == d1.get(j).getNum()) {
+          index = j;
+          break;
+        }
+      }
+      d[i] = d1.remove(index);
+    }
+  }
 }
