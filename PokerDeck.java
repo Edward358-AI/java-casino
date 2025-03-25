@@ -1,6 +1,6 @@
 import java.util.*;
 
-class PokerDeck extends Deck {
+class PokerDeck extends Deck { // a deck specifically designed to facilitate a game of poker
   private int pot;
   private Card[] board;
 
@@ -9,7 +9,7 @@ class PokerDeck extends Deck {
     board = new Card[5];
   }
 
-  public void reset() {
+  public void reset() { // resets for new hand
     super.reset();
     pot = 0;
     board = new Card[5];
@@ -23,14 +23,14 @@ class PokerDeck extends Deck {
     pot += c;
   }
 
-  public Card[] deal() {
+  public Card[] deal() { // deals out the cards required for the board
     for (int i = 0; i < 5; i++) {
       board[i] = super.deal()[0];
     }
     return Arrays.copyOf(board, 5);
   }
 
-  public Card[][] deal(int players) {
+  public Card[][] deal(int players) { // deals out cards to int players players
     Card[][] hands = new Card[players][2];
     for (int i = 0; i < players; i++) {
       for (int j = 0; j < 2; j++) {
@@ -40,8 +40,20 @@ class PokerDeck extends Deck {
     return hands;
   }
 
-  public int getRanking(Card[] hand) {
-    int[] numhand = new int[5];
+  public int getRanking(Card[] hand) { // gets the ranking of a 5 card poker hand
+    /* 
+     * Rankings:
+     * 1 - straight flush
+     * 2 - 4 of a kind
+     * 3 - full house
+     * 4 - flush
+     * 5 - straight
+     * 6 - 3 of a kind
+     * 7 - 2 pair
+     * 8 - 1 pair
+     * 9 - high card
+     */
+    int[] numhand = Deck.cardToInt(hand);
     int rank = 0;
     for (int i = 0; i < 5; i++) {
       numhand[i] = hand[i].getNum();
@@ -93,13 +105,13 @@ class PokerDeck extends Deck {
     return rank;
   }
 
-  public Card[] getBestHand(Player p) {
+  public Card[] getBestHand(Player p) { // gets the best possible hand given a players hand and the community cards
     // use board and player's hand
     ArrayList<Card> hand = new ArrayList<Card>(Arrays.asList(p.getHand()));
     hand.addAll(Arrays.asList(board));
     int currRank = Integer.MAX_VALUE;
     ArrayList<ArrayList<Card>> currHand = new ArrayList<ArrayList<Card>>();
-    // We need to choose 5 cards out of 7 (C(7,5) = 21 combinations)
+    // We need to choose 5 cards out of 7 (C(7,5) = 21 combinations) (brute force XD)
     for (int i = 0; i < hand.size(); i++) {
       for (int j = i + 1; j < hand.size(); j++) {
         for (int k = j + 1; k < hand.size(); k++) {
@@ -121,6 +133,9 @@ class PokerDeck extends Deck {
         }
       }
     }
+    // the above code finds hands only by rank, but does not necessarily compare within the same rank, that's why we have this to compare them within the same rank because there can only be one possible best hand
+
+    // i.e. the above code might return all the possible full houses if that's the best, but we need to find the best full house out of all of the full houses, thats what this does
     Card[] bestHand = currHand.get(0).toArray(new Card[5]);
     for (int i = 1; i < currHand.size(); i++) {
       if (compareHands(bestHand, currHand.get(i).toArray(new Card[5])) == 2) bestHand = currHand.get(i).toArray(new Card[5]);
@@ -128,36 +143,35 @@ class PokerDeck extends Deck {
     return bestHand;
   }
 
-  public int compareHands(Card[] h1, Card[] h2) {
+  public int compareHands(Card[] h1, Card[] h2) { // compares two poker hands
+    // returns 1 if the first one is better, 2 if the second one better, 0 if theyre the are the exact same
     int H1 = this.getRanking(h1);
     int H2 = this.getRanking(h2);
-    int[] num1 = new int[5];
-    int[] num2 = new int[5];
-    for (int i = 0; i < 5; i++) {
-      num1[i] = h1[i].getNum();
-      num2[i] = h2[i].getNum();
-    }
+    int[] num1 = Deck.cardToInt(h1);
+    int[] num2 = Deck.cardToInt(h2);
     Arrays.sort(num1);
     Arrays.sort(num2);
-    Integer[] useMode = { 2, 3, 6, 7, 8 };
+    Integer[] useMode = { 2, 3, 6, 7, 8 }; // see the rankings for getRankings
+    // ^ these are the types of hands that require checking the most reoccuring card
 
-    if (H1 < H2)
+    if (H1 < H2) // these are just simple comparisons by rank
       return 1;
     else if (H2 < H1)
       return 2;
     else {
-      if (!Arrays.equals(num1, num2)) {
-        if (Arrays.asList(useMode).contains((Integer) H1)) {
-          if (H1 != 7 && H1 != 8) {
+      if (!Arrays.equals(num1, num2)) { // checks if the arrays are equal to immediately determine if needs to return 0
+        if (Arrays.asList(useMode).contains((Integer) H1)) { 
+          if (H1 != 7 && H1 != 8) { // below code does NOT apply for two pair and one pair hands
             if (mode(num1) != mode(num2))
               return (mode(num1) > mode(num2)) ? 1 : 2;
             else
               return 0;
-          } else if (H1 == 7) {
-            int[] mode1 = new int[2];
-            int[] mode2 = new int[2];
-            int[] sNum1 = new int[3];
-            int[] sNum2 = new int[3];
+          } else if (H1 == 7) { // compares two 2-pair hands
+            int[] mode1 = new int[2]; // stores the pairs for hand 1
+            int[] mode2 = new int[2]; // stores the pairs for hand 2
+            int[] sNum1 = new int[3]; // stores hand 1 after removing the first pair, temporary
+            int[] sNum2 = new int[3]; // stores hand 2 after removing the first pair, temporary
+            // below code acquires the 2 pairs in each hand
             int i1 = 0;
             int i2 = 0;
             int m1 = mode(num1);
@@ -176,11 +190,12 @@ class PokerDeck extends Deck {
             }
             mode1[1] = mode(sNum1);
             mode2[1] = mode(sNum2);
+            //sorts mode arrays to check if theyre equal
             Arrays.sort(mode1);
             Arrays.sort(mode2);
             if (!Arrays.equals(mode1, mode2)) {
-              return (mode1[0] > mode2[0] || mode1[1] > mode2[1]) ? 1 : 2;
-            } else {
+              return (mode1[0] > mode2[0] || mode1[1] > mode2[1]) ? 1 : 2; // if the pairs are not same, compare them directly
+            } else { // else, check the "kicker" card, or the last card to determine equality
               int last1 = 0;
               int last2 = 0;
               for (int i = 0; i < 3; i++) {
@@ -191,7 +206,7 @@ class PokerDeck extends Deck {
               }
               return (last1 != last2) ? ((last1 > last2) ? 1 : 2) : 0;
             }
-          } else {
+          } else { // compares two 1-pair hands
             int m1 = mode(num1);
             int m2 = mode(num2);
             if (m1 == m2) {
@@ -210,7 +225,7 @@ class PokerDeck extends Deck {
               return (m1 > m2) ? 1 : 2;
             }
           }
-        } else {
+        } else { // compares any non pair/set related hands, like flushes, straights, straight flush, high card
           int r = 0;
           for (int i = 4; i >= 0; i--) {
             if (num1[i] > num2[i]) {

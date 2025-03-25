@@ -4,7 +4,7 @@ public class Card {
   public Card(String value) {
     this.value = value;
     String temp = value.substring(0,1);
-      switch(temp) {
+      switch(temp) { // this gets the numerical value of the card
         case "T":
           num = 10;
           break;

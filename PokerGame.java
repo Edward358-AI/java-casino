@@ -3,8 +3,8 @@ import java.util.*;
 class PokerGame {
   private PokerDeck p = new PokerDeck();
   private Player[] players;
-  private int[] blinds = {0, 1, 2};
-  private int[] bbSize = {10, 20};
+  private int[] blinds = {0, 1, 2}; // current blinds positions
+  private int[] bbSize = {10, 20}; // current blinds size
 
   public PokerGame(Player[] players) {
     this.players = new Player[players.length];
@@ -15,7 +15,7 @@ class PokerGame {
     preflop();
   }
 
-  public void preflop() {
+  public void preflop() { // code to execute preflop
     Card[][] holeCards = p.deal(players.length);
     p.addChips(players[blinds[1]].removeChips(bbSize[0]));
     p.addChips(players[blinds[2]].removeChips(bbSize[1]));
@@ -27,7 +27,7 @@ class PokerGame {
     postflop();
   }
 
-  public void postflop() {
+  public void postflop() { // all code to execute postflop, including flop, turn and river
     Card[] b = p.deal();
     for (int i = 0; i < players.length; i++) {
       String action;
