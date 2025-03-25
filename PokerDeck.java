@@ -93,6 +93,13 @@ class PokerDeck extends Deck {
     return rank;
   }
 
+  public Card[] getBestHand(Player p) {
+    // use board and player's hand
+    Card[] hand = p.getHand();
+    
+    return null;
+  }
+
   public int compareHands(Card[] h1, Card[] h2) {
     int H1 = this.getRanking(h1);
     int H2 = this.getRanking(h2);
