@@ -13,7 +13,7 @@ public class Bot extends Player {
   public void randomName () {
     super.setName(names[(int) (Math.random() * names.length)]);
   }
-  public String action() {
+  public String action(String round) {
     return "";
   }
 }
