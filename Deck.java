@@ -42,21 +42,25 @@ public class Deck {
   }
 
   public static void sort(Card[] d) {
-    int[] numD = new int[d.length];
-    for (int i = 0; i < d.length; i++) {
-      numD[i] = d[i].getNum();
-    }
-    Arrays.sort(numD);
-    ArrayList<Card> d1 = new ArrayList<Card>(Arrays.asList(d));
-    for (int i = 0; i < d.length; i++) {
-      int index = 0;
-      for (int j = 0; j < d.length; j++) {
-        if (numD[i] == d1.get(j).getNum()) {
-          index = j;
-          break;
-        }
-      }
-      d[i] = d1.remove(index);
-    }
+    Arrays.sort(d, new cardSort());
+  }
+
+  public static String[] cardToString(Card[] d) {
+    String[] a = new String[d.length];
+    for (int i = 0; i < d.length; i++) a[i] = d[i].getValue();
+    return a;
+  }
+
+  public static int[] cardToInt(Card[] d) {
+    int[] a = new int[d.length];
+    for (int i = 0; i < d.length; i++) a[i] = d[i].getNum();
+    return a;
+  }
+}
+
+
+class cardSort implements Comparator<Card> {
+  public int compare(Card a, Card b) {
+    return a.getNum() - b.getNum();
   }
 }

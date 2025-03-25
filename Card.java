@@ -30,4 +30,7 @@ public class Card {
   public int getNum() {
     return num;
   }
+  public String toString() {
+    return value;
+  }
 }
