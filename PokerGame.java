@@ -21,7 +21,6 @@ class PokerGame {
     p.addChips(players[blinds[2]].removeChips(bbSize[1]));
     for (int i = 0; i < holeCards.length; i++) {
       players[i].setHand(holeCards[i]);
-      String action = players[i].action("preflop");
       // do some stuff based on action
     }
     postflop();
@@ -29,19 +28,13 @@ class PokerGame {
 
   public void postflop() { // all code to execute postflop, including flop, turn and river
     Card[] b = p.deal();
-    for (int i = 0; i < players.length; i++) {
-      String action;
-      if (players[i].inHand()) action = players[i].action("flop");
+    for (int i = 0; i < players.length; i++) { // code for the flop
       // do some stuff based on action
     }
-    for (int i = 0; i < players.length; i++) {
-      String action;
-      if (players[i].inHand()) action = players[i].action("turn");
+    for (int i = 0; i < players.length; i++) { // code for the turn
       // do some stuff based on action
     }
-    for (int i = 0; i < players.length; i++) {
-      String action;
-      if (players[i].inHand()) action = players[i].action("river");
+    for (int i = 0; i < players.length; i++) { // code for the river
       // do some stuff based on action
     }
     showdown();
