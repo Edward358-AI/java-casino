@@ -4,6 +4,7 @@ public class Player {
   private String name;
   private int chips;
   private boolean in;
+  private static Scanner sc = new Scanner(System.in);
   public Player(String name) {
     this.name = name;
     chips = 1000;
@@ -38,34 +39,31 @@ public class Player {
   }
 
   public static int getValidInt(String message) {
-    Scanner sc = new Scanner(System.in);
     int x;
     while (true) {
       System.out.println(message);
       try {
-        x = sc.nextInt();
+        String z = sc.nextLine().trim();
+        x = Integer.parseInt(z);
         break;
-      } catch (InputMismatchException e) {
+      } catch (NumberFormatException e) {
         continue;
       }
     }
-    sc.close();
     return x;
   }
   public static int getValidInt(String message, int min, int max) {
-    Scanner sc = new Scanner(System.in);
     int x;
     while (true) {
       System.out.println(message);
       try {
-        x = sc.nextInt();
+        String z = sc.nextLine().trim();
+        x = Integer.parseInt(z);
         if (x >= min && x <= max) break;
-        else continue;
-      } catch (InputMismatchException e) {
+      } catch (NumberFormatException e) {
         continue;
       }
     }
-    sc.close();
     return x;
   }
 }
