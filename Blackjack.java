@@ -1,7 +1,26 @@
 import java.util.*;
 
 public class Blackjack {
-  Deck deck; // deal, reset
+  private Deck deck; // deal, reset
+  private ArrayList<BJPlayer> players;
+
+  public Blackjack(BJPlayer p) {
+    deck = new Deck();
+    players.add(p);
+    players.add(new BJBot());
+  }
+
+  private void main() {
+    for(BJPlayer player:players) { // give all players two cards
+      player.add(deck.deal()[0]);
+      player.add(deck.deal()[0]);
+    }
+    
+  }
+
+  public void initialize() {
+    main();
+  }
 
   private int getNumber(Card c) {
     int num = -1;

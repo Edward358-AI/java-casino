@@ -10,7 +10,7 @@ public class Player {
     chips = 1000;
     in = true;
   }
-  public Object[] action()  {
+  public int[] action() { // length 2
     return null;
   }
 
