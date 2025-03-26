@@ -105,7 +105,7 @@ class PokerDeck extends Deck { // a deck specifically designed to facilitate a g
     return rank;
   }
 
-  public Card[] getBestHand(Player p) { // gets the best possible hand given a players hand and the community cards
+  public Card[] getBestHand(PokerPlayer p) { // gets the best possible hand given a players hand and the community cards
     // use board and player's hand
     ArrayList<Card> hand = new ArrayList<Card>(Arrays.asList(p.getHand()));
     hand.addAll(Arrays.asList(board));

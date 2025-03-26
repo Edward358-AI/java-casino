@@ -2,12 +2,11 @@ import java.util.*;
 
 class PokerGame {
   private PokerDeck p = new PokerDeck();
-  private Player[] players;
+  private PokerPlayer[] players;
   private int[] blinds = {0, 1, 2}; // current blinds positions
   private int[] bbSize = {10, 20}; // current blinds size
 
-  public PokerGame(Player[] players) {
-    this.players = new Player[players.length];
+  public PokerGame(PokerPlayer[] players) {
     this.players = players;
   }
 
