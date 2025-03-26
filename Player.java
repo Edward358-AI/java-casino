@@ -36,4 +36,36 @@ public class Player {
   public void setInHand(boolean in) {
     this.in = in;
   }
+
+  public static int getValidInt(String message) {
+    Scanner sc = new Scanner(System.in);
+    int x;
+    while (true) {
+      System.out.println(message);
+      try {
+        x = sc.nextInt();
+        break;
+      } catch (InputMismatchException e) {
+        continue;
+      }
+    }
+    sc.close();
+    return x;
+  }
+  public static int getValidInt(String message, int min, int max) {
+    Scanner sc = new Scanner(System.in);
+    int x;
+    while (true) {
+      System.out.println(message);
+      try {
+        x = sc.nextInt();
+        if (x >= min && x <= max) break;
+        else continue;
+      } catch (InputMismatchException e) {
+        continue;
+      }
+    }
+    sc.close();
+    return x;
+  }
 }
