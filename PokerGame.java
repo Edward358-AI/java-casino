@@ -9,6 +9,7 @@ class PokerGame {
   private int lastPlayer;
   private int currBet;
   private int[] currAction;
+  private int prevPot;
 
   public PokerGame(PokerPlayer[] players) {
     this.players = players;
@@ -41,7 +42,8 @@ class PokerGame {
           pot[i] += currAction[1];
           if (currAction[1] == 0)
             System.out.println(players[i].getName() + " in big blind checks.");
-          else if (players[i].status() == 2) System.out.println(players[i].getName() + " in big blind calls for $" + currBet + ".");
+          else if (players[i].status() == 2)
+            System.out.println(players[i].getName() + " in big blind calls for $" + currBet + ".");
           else
             System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
                 + "calls for $" + currBet + ".");
@@ -65,12 +67,11 @@ class PokerGame {
         p.addChips(0 - p.getChips());
         p.addChips(sum(pot));
       }
-      if (i == players.length - 1) {
-        i = -1;
-      } 
       if (i == lastPlayer)
         break;
-
+      if (i == players.length - 1) {
+        i = -1;
+      }
     }
     pot = new int[players.length];
     postflop();
@@ -81,37 +82,146 @@ class PokerGame {
     lastPlayer = players.length - 1;
     currAction = new int[2];
     currBet = 0;
-    for (int i = 0; ; i++) { // code for the flop
-      if (i == players.length - 1) {
-        i = -1;
-      } 
+    prevPot = p.getChips();
+    for (int i = 0;; i++) { // code for the flop
+      if (players[i].inHand() && (pot[i] < currBet || currBet == 0)) {
+        System.out.println(players[i].getName().toUpperCase() + "'s turn!");
+        System.out.println("Board: " + b[0].getValue() + " - " + b[1].getValue() + " - " + b[2].getValue());
+        System.out.println("Current pot: $" + prevPot);
+        currAction = players[i].action("flop", pot[i], currBet, blinds[1]);
+        if (currAction[0] == 1) {
+          pot[i] += currAction[1];
+          if (currAction[1] == 0)
+            System.out.println(players[i].getName() + " checks.");
+          else if (players[i].status() == 2)
+            System.out.println(players[i].getName() + " in big blind calls for $" + currBet + ".");
+          else
+            System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
+                + "calls for $" + currBet + ".");
+        } else if (currAction[0] == 2) {
+          if (players[i].status() == 2)
+            System.out.println(players[i].getName() + " in big blind folds.");
+          else
+            System.out
+                .println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "folds.");
+        } else {
+          pot[i] += currAction[1];
+          currBet = pot[i];
+          lastPlayer = i - 1;
+          if (players[i].status() == 2)
+            System.out.println(players[i].getName() + " in big blind raises to $" + currBet + ".");
+          else
+            System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
+                + "raises to $" + currBet);
+        }
+        System.out.println();
+        prevPot += sum(pot);
+      }
       if (i == lastPlayer)
         break;
+      if (i == players.length - 1) {
+        i = -1;
+      }
     }
+    p.addChips(prevPot - p.getChips());
     lastPlayer = players.length - 1;
     currAction = new int[2];
     currBet = 0;
-    p.addChips(sum(pot));
+    prevPot = 0;
+    prevPot = p.getChips();
     pot = new int[players.length];
-    for (int i = 0; ; i++) { // code for the turn
-      if (i == players.length - 1) {
-        i = -1;
-      } 
+    for (int i = 0;; i++) { // code for the turn
+      if (players[i].inHand() && (pot[i] < currBet || currBet == 0)) {
+        System.out.println(players[i].getName().toUpperCase() + "'s turn!");
+        System.out.println("Board: " + b[0].getValue() + " - " + b[1].getValue() + " - " + b[2].getValue() + " - " + b[3].getValue());
+        System.out.println("Current pot: $" + prevPot);
+        currAction = players[i].action("turn", pot[i], currBet, blinds[1]);
+        if (currAction[0] == 1) {
+          pot[i] += currAction[1];
+          if (currAction[1] == 0)
+            System.out.println(players[i].getName() + " checks.");
+          else if (players[i].status() == 2)
+            System.out.println(players[i].getName() + " in big blind calls for $" + currBet + ".");
+          else
+            System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
+                + "calls for $" + currBet + ".");
+        } else if (currAction[0] == 2) {
+          if (players[i].status() == 2)
+            System.out.println(players[i].getName() + " in big blind folds.");
+          else
+            System.out
+                .println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "folds.");
+        } else {
+          pot[i] += currAction[1];
+          currBet = pot[i];
+          lastPlayer = i - 1;
+          if (players[i].status() == 2)
+            System.out.println(players[i].getName() + " in big blind raises to $" + currBet + ".");
+          else
+            System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
+                + "raises to $" + currBet);
+        }
+        System.out.println();
+        prevPot += sum(pot);
+      }
       if (i == lastPlayer)
         break;
+      if (i == players.length - 1) {
+        i = -1;
+      }
     }
+    p.addChips(prevPot - p.getChips());
     lastPlayer = players.length - 1;
     currAction = new int[2];
     currBet = 0;
-    p.addChips(sum(pot));
+    prevPot = p.getChips();
     pot = new int[players.length];
-    for (int i = 0; ; i++) { // code for the river
-      if (i == players.length - 1) {
-        i = -1;
-      } 
+    for (int i = 0;; i++) { // code for the river
+      if (players[i].inHand() && (pot[i] < currBet || currBet == 0)) {
+        System.out.println(players[i].getName().toUpperCase() + "'s turn!");
+        System.out.println("Board: " + b[0].getValue() + " - " + b[1].getValue() + " - " + b[2].getValue() + " - " + b[3].getValue() + " - " + b[4].getValue());
+        System.out.println("Current pot: $" + prevPot);
+        currAction = players[i].action("river", pot[i], currBet, blinds[1]);
+        if (currAction[0] == 1) {
+          pot[i] += currAction[1];
+          if (currAction[1] == 0)
+            System.out.println(players[i].getName() + " checks.");
+          else if (players[i].status() == 2)
+            System.out.println(players[i].getName() + " in big blind calls for $" + currBet + ".");
+          else
+            System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
+                + "calls for $" + currBet + ".");
+        } else if (currAction[0] == 2) {
+          if (players[i].status() == 2)
+            System.out.println(players[i].getName() + " in big blind folds.");
+          else
+            System.out
+                .println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "folds.");
+        } else {
+          pot[i] += currAction[1];
+          currBet = pot[i];
+          lastPlayer = i - 1;
+          if (players[i].status() == 2)
+            System.out.println(players[i].getName() + " in big blind raises to $" + currBet + ".");
+          else
+            System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
+                + "raises to $" + currBet);
+        }
+        System.out.println();
+        prevPot += sum(pot);
+      }
       if (i == lastPlayer)
         break;
+      if (i == players.length - 1) {
+        i = -1;
+      }
     }
+    p.addChips(prevPot - p.getChips());
+    lastPlayer = players.length - 1;
+    currAction = new int[2];
+    currBet = 0;
+    prevPot = 0;
+    pot = new int[players.length];
     showdown();
   }
 
