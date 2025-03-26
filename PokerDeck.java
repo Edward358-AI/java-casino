@@ -23,6 +23,10 @@ class PokerDeck extends Deck { // a deck specifically designed to facilitate a g
     pot += c;
   }
 
+  public int getChips() {
+    return pot;
+  }
+
   public Card[] deal() { // deals out the cards required for the board
     for (int i = 0; i < 5; i++) {
       board[i] = super.deal()[0];

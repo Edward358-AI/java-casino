@@ -6,7 +6,7 @@ public class Player {
   private boolean in;
   private static Scanner sc = new Scanner(System.in);
   public Player(String name) {
-    this.name = name;
+    this.name = name.substring(0,1).toUpperCase() + name.substring(1);
     chips = 1000;
     in = true;
   }
@@ -38,20 +38,6 @@ public class Player {
     this.in = in;
   }
 
-  public static int getValidInt(String message) {
-    int x;
-    while (true) {
-      System.out.println(message);
-      try {
-        String z = sc.nextLine().trim();
-        x = Integer.parseInt(z);
-        break;
-      } catch (NumberFormatException e) {
-        continue;
-      }
-    }
-    return x;
-  }
   public static int getValidInt(String message, int min, int max) {
     int x;
     while (true) {

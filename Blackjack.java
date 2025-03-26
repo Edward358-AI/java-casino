@@ -2,7 +2,7 @@ import java.util.*;
 
 public class Blackjack {
   private Deck deck; // deal, reset
-  private ArrayList<BJPlayer> players;
+  private ArrayList<BJPlayer> players = new ArrayList<BJPlayer>();
 
   public Blackjack(BJPlayer p) {
     deck = new Deck();
