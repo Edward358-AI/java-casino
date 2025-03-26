@@ -1,2 +1,7 @@
-# java-hold-em
-A simple, CLI interface of the popular card game Texas Hold'em.
+# java-casino
+A simple, CLI interface for Texas Hold'em Poker and Blackjack. 
+
+## Rules
+Hold'em is NLH, or No-Limit Hold'em. Standard rules apply.
+
+Blackjack is highly simplified, with no double downs, insurance, split, etc., but there will be surrendering. Standard rules also apply.
