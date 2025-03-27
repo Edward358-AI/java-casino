@@ -81,7 +81,7 @@ class PokerGame {
     if (stillIn() > 1)
       postflop();
     else
-      showdown();
+      showdown(0);
   }
 
   private void postflop() { // all code to execute postflop, including flop, turn and river
@@ -90,6 +90,7 @@ class PokerGame {
     currAction = new int[2];
     currBet = 0;
     prevPot = p.getChips();
+    int lastRound = 0;
     for (int j = 0; j < 3; j++) {
       for (int i = 0;; i++) { // code for the flop, turn and river
         if (players[i].inHand() && (pot[i] < currBet || currBet == 0)) {
@@ -130,8 +131,6 @@ class PokerGame {
         }
         if (i == lastPlayer)
           break;
-        if (stillIn() < 2)
-          break;
         if (i == players.length - 1)
           i = -1;
       }
@@ -144,31 +143,49 @@ class PokerGame {
       prevPot = 0;
       prevPot = p.getChips();
       pot = new int[players.length];
+      lastRound = j;
+      if (stillIn() < 2)
+        break;
     }
-    showdown();
+    showdown((lastRound == 2) ? 1 : 0);
   }
 
-  private void showdown() {
-    ArrayList<Integer> currBest = new ArrayList<Integer>();
-    currBest.add(0);
-    Card[] bestHand = p.getBestHand(players[0]);
-    for (int i = 1; i < players.length; i++) {
-      if (players[i].inHand()) {
-        Card[] currHand = p.getBestHand(players[i]);
-        if (p.compareHands(bestHand, currHand) == 2) {
-          currBest.clear();
-          currBest.add(i);
-          bestHand = currHand;
-        } else if (p.compareHands(bestHand, currHand) == 0)
-          currBest.add(i);
+  private void showdown(int complete) { // complete: 0 - incomplete, everyone folded, 1 - complete
+    if (complete == 1) {
+      ArrayList<Integer> currBest = new ArrayList<Integer>();
+      Card[] bestHand = new Card[5];
+      for (int i = 0; i < players.length; i++) {
+        if (players[i].inHand()) {
+          if (currBest.size() > 0) {
+            Card[] currHand = p.getBestHand(players[i]);
+            if (p.compareHands(bestHand, currHand) == 2) {
+              currBest.clear();
+              currBest.add(i);
+              bestHand = currHand;
+            } else if (p.compareHands(bestHand, currHand) == 0)
+              currBest.add(i);
+          } else {
+            currBest.add(i);
+            bestHand = p.getBestHand(players[i]);
+          }
+        }
       }
-    }
-    Deck.sort(bestHand);
-    for (int i = 0; i < currBest.size(); i++) {
-      players[currBest.get(i)].addChips((int) (p.getChips() / currBest.size()));
-      System.out.print(players[currBest.get(i)].getName() + " won $" + (int) (p.getChips() / currBest.size()) + " this hand! Their hand was ");
-      for (int f = 0; f < 5; f++) {
-        System.out.print(bestHand[f].getValue() + ((f == 4) ? "\n" : " - "));
+      Deck.sort(bestHand);
+      for (int i = 0; i < currBest.size(); i++) {
+        players[currBest.get(i)].addChips((int) (p.getChips() / currBest.size()));
+        System.out.print(players[currBest.get(i)].getName() + " won $" + (int) (p.getChips() / currBest.size())
+            + " this hand! Their hand was ");
+        for (int f = 0; f < 5; f++) {
+          System.out.print(bestHand[f].getValue() + ((f == 4) ? "\n" : " - "));
+        }
+      }
+    } else {
+      for (int i = 0; i < players.length; i++) {
+        if (players[i].inHand()) {
+          players[i].addChips(p.getChips());
+          System.out.println(players[i].getName() + " won $" + p.getChips()
+            + " this hand! Everyone else folded.");
+        }
       }
     }
     System.out.println("Press Enter to continue:");
