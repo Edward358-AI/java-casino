@@ -42,35 +42,39 @@ class PokerGame {
       if (players[i].inHand() && (pot[i] < currBet || (players[i].status() == 2 && currBet == blinds[1]))) {
         System.out.println(players[i].getName().toUpperCase() + "'s turn!");
         System.out.println("Current pot: $" + p.getChips());
-        currAction = players[i].action("preflop", pot[i], currBet, blinds[1]);
-        if (currAction[0] == 1) {
-          pot[i] += currAction[1];
-          if (currAction[1] == 0)
-            System.out.println(players[i].getName() + " in big blind checks.");
-          else if (players[i].status() == 2)
-            System.out.println(players[i].getName() + " in big blind calls for $" + currBet + ".");
-          else
-            System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
-                + "calls for $" + currBet + ".");
-        } else if (currAction[0] == 2) {
-          if (players[i].status() == 2)
-            System.out.println(players[i].getName() + " in big blind folds.");
-          else
-            System.out
-                .println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "folds.");
+        if (players[i].getChips() > 0) {
+          currAction = players[i].action("preflop", pot[i], currBet, blinds[1]);
+          if (currAction[0] == 1) {
+            pot[i] += currAction[1];
+            if (currAction[1] == 0)
+              System.out.println(players[i].getName() + " in big blind checks.");
+            else if (players[i].status() == 2)
+              System.out.println(players[i].getName() + " in big blind calls for $" + currBet + ".");
+            else
+              System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
+                  + "calls for $" + currBet + ".");
+          } else if (currAction[0] == 2) {
+            if (players[i].status() == 2)
+              System.out.println(players[i].getName() + " in big blind folds.");
+            else
+              System.out
+                  .println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "folds.");
+          } else {
+            pot[i] += currAction[1];
+            currBet = pot[i];
+            lastPlayer = (i == 0) ? players.length - 1 : i - 1;
+            if (players[i].status() == 2)
+              System.out.println(players[i].getName() + " in big blind raises to $" + currBet + ".");
+            else
+              System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
+                  + "raises to $" + currBet);
+          }
+          System.out.println();
+          p.addChips(0 - p.getChips());
+          p.addChips(sum(pot));
         } else {
-          pot[i] += currAction[1];
-          currBet = pot[i];
-          lastPlayer = (i == 0) ? players.length - 1 : i - 1;
-          if (players[i].status() == 2)
-            System.out.println(players[i].getName() + " in big blind raises to $" + currBet + ".");
-          else
-            System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
-                + "raises to $" + currBet);
+          System.out.println(players[i].getName() + " has no chips! Moving onto the next player...");
         }
-        System.out.println();
-        p.addChips(0 - p.getChips());
-        p.addChips(sum(pot));
       }
       if (i == lastPlayer)
         break;
@@ -102,36 +106,40 @@ class PokerGame {
           System.out.println("Board: " + b[0].getValue() + " - " + b[1].getValue() + " - " + b[2].getValue()
               + ((j > 0) ? (" - " + b[3].getValue()) : "") + ((j == 2) ? " - " + b[4].getValue() : ""));
           System.out.println("Current pot: $" + prevPot);
-          currAction = players[i].action("postflop", pot[i], currBet, blinds[1]);
-          if (currAction[0] == 1) {
-            pot[i] += currAction[1];
-            if (currAction[1] == 0)
-              System.out.println(players[i].getName() + " checks.");
-            else if (players[i].status() == 2)
-              System.out.println(players[i].getName() + " in big blind calls for $" + currBet + ".");
-            else
-              System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
-                  + "calls for $" + currBet + ".");
-          } else if (currAction[0] == 2) {
-            if (players[i].status() == 2)
-              System.out.println(players[i].getName() + " in big blind folds.");
-            else
-              System.out
-                  .println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "folds.");
-          } else {
+          if (players[i].getChips() > 0) {
+            currAction = players[i].action("postflop", pot[i], currBet, blinds[1]);
+            if (currAction[0] == 1) {
+              pot[i] += currAction[1];
+              if (currAction[1] == 0)
+                System.out.println(players[i].getName() + " checks.");
+              else if (players[i].status() == 2)
+                System.out.println(players[i].getName() + " in big blind calls for $" + currBet + ".");
+              else
+                System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
+                    + "calls for $" + currBet + ".");
+            } else if (currAction[0] == 2) {
+              if (players[i].status() == 2)
+                System.out.println(players[i].getName() + " in big blind folds.");
+              else
+                System.out
+                    .println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "folds.");
+            } else {
 
-            if (players[i].status() == 2)
-              System.out.println(players[i].getName() + " in big blind " + ((currBet == 0) ? "bets" : "raises to")
-                  + " $" + currAction[1] + ".");
-            else
-              System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
-                  + ((currBet == 0) ? "bets" : "raises to") + " $" + currAction[1]);
-            pot[i] += currAction[1];
-            currBet = pot[i];
-            lastPlayer = (i == 0) ? players.length - 1 : i - 1;
+              if (players[i].status() == 2)
+                System.out.println(players[i].getName() + " in big blind " + ((currBet == 0) ? "bets" : "raises to")
+                    + " $" + currAction[1] + ".");
+              else
+                System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
+                    + ((currBet == 0) ? "bets" : "raises to") + " $" + currAction[1]);
+              pot[i] += currAction[1];
+              currBet = pot[i];
+              lastPlayer = (i == 0) ? players.length - 1 : i - 1;
+            }
+            System.out.println();
+            prevPot += sum(pot);
+          } else {
+            System.out.println(players[i].getName() + " has no chips! Moving onto the next player...");
           }
-          System.out.println();
-          prevPot += sum(pot);
         }
         if (i == lastPlayer)
           break;
@@ -188,12 +196,10 @@ class PokerGame {
         if (players[i].inHand()) {
           players[i].addChips(p.getChips());
           System.out.println(players[i].getName() + " won $" + p.getChips()
-            + " this hand! Everyone else folded.");
+              + " this hand! Everyone else folded.");
         }
       }
     }
-    System.out.println("Press Enter to continue:");
-    sc.nextLine();
     newHand();
   }
 
@@ -211,11 +217,21 @@ class PokerGame {
     }
     players[players.length - 1] = first;
     for (int i = 0; i < players.length; i++) {
-      players[i].setInHand(true);
+      if (players[i].getChips() > 0)
+        players[i].setInHand(true);
+      else if (players[i] instanceof PokerBot) {
+        String ogName = players[i].getName();
+        players[i] = new PokerBot();
+        System.out
+            .println(ogName + " has run out of chips, they has been replaced by newcomer " + players[i].getName());
+      } else
+        endGame();
     }
     players[0].setStatus(1);
     players[1].setStatus(2);
     pot = new int[players.length];
+    System.out.println("Press Enter to continue:");
+    sc.nextLine();
     Utils.clearScreen();
     preflop();
   }
