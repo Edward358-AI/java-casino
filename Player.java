@@ -46,7 +46,7 @@ public class Player {
         String z = sc.nextLine().trim();
         x = Integer.parseInt(z);
         if (x >= min && x <= max) break;
-      } catch (NumberFormatException e) {
+      } catch (Exception e) {
         continue;
       }
     }

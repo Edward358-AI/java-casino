@@ -32,10 +32,10 @@ public class PokerPlayer extends Player {
     switch (round) {
       case "preflop":
         int act;
-        System.out.println("Your hand is " + hand[0].getValue() + " " + hand[1].getValue());
-        System.out.println("Current amount to call is $" + bet + "." + ((status == 1) ? " You are in small blind position."
+        System.out.println("Your hand: " + hand[0].getValue() + " " + hand[1].getValue());
+        System.out.println("Current amount to call is $" + bet + "." + " You have $" + super.getChips() + "." + ((status == 1) ? " You are in small blind position."
             : ((status == 2) ? "You are in big blind position." : "")));
-        System.out.print("Currently you have put in $" + prevBet + ". What is your action?\n");
+        System.out.print("You have put in $" + prevBet + " so far. What is your action?\n");
         switch (status) {
           case 2:
             if (prevBet == bet) act = Player.getValidInt("[1] Check [2] Fold [3] Raise", 1, 3);
@@ -63,87 +63,18 @@ public class PokerPlayer extends Player {
             break;
         }
         break;
-      case "flop":
+      default:
         int flop;
         System.out.println("Your hand is " + hand[0].getValue() + " " + hand[1].getValue());
-        System.out.println("Current amount to call is $" + bet + "." + ((status == 1) ? " You are in small blind position."
+        System.out.println("Current amount to call is $" + bet + "." + " You have $" + super.getChips() + "."  + ((status == 1) ? " You are in small blind position."
             : ((status == 2) ? "You are in big blind position." : "")));
-        System.out.print("Currently you have put in $" + prevBet + ". What is your action?\n");
+        System.out.print("You have put in $" + prevBet + " so far. What is your action?\n");
         if (bet == 0)
           flop = Player.getValidInt("[1] Check [2] Fold [3] Bet", 1, 3);
         else
-          flop = Player.getValidInt("[1] Call] [2] Fold [3] Raise", 1, 3);
+          flop = Player.getValidInt("[1] Call [2] Fold [3] Raise", 1, 3);
         action[0] = flop;
         switch (flop) {
-          case 1:
-            action[1] = bet-prevBet;
-            break;
-          case 2:
-            super.setInHand(false);
-            break;
-          case 3:
-            int chips;
-            if (bet != 0)
-              chips = getValidInt(
-                  "How much would you like to raise the current bet by? Min - " + bet + ", Max - " + super.getChips(),
-                  bet,
-                  super.getChips());
-            else
-              chips = getValidInt(
-                  "How much would you like to raise the current bet by? Min - " + blind + ", Max - " + super.getChips(),
-                  blind,
-                  super.getChips());
-            action[1] = chips + bet-prevBet;
-            break;
-        }
-        break;
-      case "turn":
-        int turn;
-        System.out.println("Your hand is " + hand[0].getValue() + " " + hand[1].getValue());
-        System.out.println("Current amount to call is $" + bet + "." + ((status == 1) ? " You are in small blind position."
-            : ((status == 2) ? "You are in big blind position." : "")));
-        System.out.print("Currently you have put in $" + prevBet + ". What is your action?\n");
-        if (bet == 0)
-          turn = Player.getValidInt("[1] Check [2] Fold [3] Bet", 1, 3);
-        else
-          turn = Player.getValidInt("[1] Call] [2] Fold [3] Raise", 1, 3);
-        action[0] = turn;
-        switch (turn) {
-          case 1:
-            action[1] = bet-prevBet;
-            break;
-          case 2:
-            super.setInHand(false);
-            break;
-          case 3:
-            int chips;
-            if (bet != 0)
-              chips = getValidInt(
-                  "How much would you like to raise the current bet by? Min - " + bet + ", Max - " + super.getChips(),
-                  bet,
-                  super.getChips());
-            else
-              chips = getValidInt(
-                  "How much would you like to raise the current bet by? Min - " + blind + ", Max - " + super.getChips(),
-                  blind,
-                  super.getChips());
-            action[1] = chips + bet-prevBet;
-            break;
-        }
-        break;
-      case "river":
-        int river;
-        System.out.println("Your hand is " + hand[0].getValue() + " " + hand[1].getValue());
-        System.out.println("Current amount to call is $" + bet + "." + ((status == 1) ? " You are in small blind position."
-            : ((status == 2) ? "You are in big blind position." : "")));
-        System.out.print("Currently you have put in $" + prevBet + ". What is your action?\n");
-        System.out.print("What is your action? ");
-        if (bet == 0)
-          river = Player.getValidInt("[1] Check [2] Fold [3] Bet", 1, 3);
-        else
-          river = Player.getValidInt("[1] Call] [2] Fold [3] Raise", 1, 3);
-        action[0] = river;
-        switch (river) {
           case 1:
             action[1] = bet-prevBet;
             break;
