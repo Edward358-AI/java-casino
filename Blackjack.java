@@ -11,10 +11,13 @@ public class Blackjack {
   }
 
   private void main() {
+    // run action() function on each player before dealing cards to collect $$$
+    // action to print info // or game print board-equivalent
     for(BJPlayer player:players) { // give all players two cards
       player.add(deck.deal()[0]);
       player.add(deck.deal()[0]);
     }
+
     
   }
 
