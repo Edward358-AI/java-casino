@@ -33,7 +33,7 @@ public class PokerPlayer extends Player {
       case "preflop":
         int act;
         System.out.println("Your hand: " + hand[0].getValue() + " " + hand[1].getValue());
-        System.out.println("Current amount to call is $" + bet + "." + " You have $" + super.getChips() + "." + ((status == 1) ? " You are in small blind position."
+        System.out.println("Current amount to call is $" + bet + "." + " You have $" + (super.getChips() - prevBet) + "." + ((status == 1) ? " You are in small blind position."
             : ((status == 2) ? "You are in big blind position." : "")));
         System.out.print("You have put in $" + prevBet + " so far. What is your action?\n");
         switch (status) {
@@ -56,9 +56,9 @@ public class PokerPlayer extends Player {
             break;
           case 3:
             int chips = getValidInt(
-                "How much would you like to raise the current bet by? Min - " + bet + ", Max - " + super.getChips(),
+                "How much would you like to raise the current bet by? Min - " + bet + ", Max - " + (super.getChips() - prevBet),
                 bet,
-                super.getChips());
+                (super.getChips() - prevBet));
             action[1] = chips + bet-prevBet;
             break;
         }
@@ -66,7 +66,7 @@ public class PokerPlayer extends Player {
       default:
         int flop;
         System.out.println("Your hand is " + hand[0].getValue() + " " + hand[1].getValue());
-        System.out.println("Current amount to call is $" + bet + "." + " You have $" + super.getChips() + "."  + ((status == 1) ? " You are in small blind position."
+        System.out.println("Current amount to call is $" + bet + "." + " You have $" + (super.getChips() - prevBet) + "."  + ((status == 1) ? " You are in small blind position."
             : ((status == 2) ? "You are in big blind position." : "")));
         System.out.print("You have put in $" + prevBet + " so far. What is your action?\n");
         if (bet == 0)
@@ -85,14 +85,14 @@ public class PokerPlayer extends Player {
             int chips;
             if (bet != 0)
               chips = getValidInt(
-                  "How much would you like to raise the current bet by? Min - " + bet + ", Max - " + super.getChips(),
+                  "How much would you like to raise the current bet by? Min - " + bet + ", Max - " + (super.getChips() - prevBet),
                   bet,
-                  super.getChips());
+                  (super.getChips() - prevBet));
             else
               chips = getValidInt(
-                  "How much would you like to raise the current bet by? Min - " + blind + ", Max - " + super.getChips(),
+                  "How much would you like to raise the current bet by? Min - " + blind + ", Max - " + (super.getChips() - prevBet),
                   blind,
-                  super.getChips());
+                  (super.getChips() - prevBet));
             action[1] = chips + bet-prevBet;
             break;
         }

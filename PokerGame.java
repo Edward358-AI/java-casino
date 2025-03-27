@@ -36,7 +36,6 @@ class PokerGame {
       players[i].setHand(holeCards[i]);
     for (int i = 2;; i++) {
       if (players[i].inHand() && (pot[i] < currBet || (players[i].status() == 2 && currBet == blinds[1]))) {
-        Utils.clearScreen();
         System.out.println(players[i].getName().toUpperCase() + "'s turn!");
         System.out.println("Current pot: $" + p.getChips());
         currAction = players[i].action("preflop", pot[i], currBet, blinds[1]);
@@ -92,9 +91,7 @@ class PokerGame {
     currBet = 0;
     prevPot = p.getChips();
     for (int j = 0; j < 3; j++) {
-      System.out.println(j);
       for (int i = 0;; i++) { // code for the flop, turn and river
-        System.out.println(i);
         if (players[i].inHand() && (pot[i] < currBet || currBet == 0)) {
           System.out.println(players[i].getName().toUpperCase() + "'s turn!");
           System.out.println("Board: " + b[0].getValue() + " - " + b[1].getValue() + " - " + b[2].getValue()
@@ -198,8 +195,7 @@ class PokerGame {
     players[0].setStatus(1);
     players[1].setStatus(2);
     pot = new int[players.length];
-    for (int i = 0; i < 10; i++)
-      System.out.println("\n");
+    Utils.clearScreen();
     preflop();
   }
 
