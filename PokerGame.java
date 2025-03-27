@@ -24,6 +24,10 @@ class PokerGame {
     preflop();
   }
 
+  private void endGame() {
+    System.out.println("Game Over! You ran out of chips!");
+  }
+
   private void preflop() { // code to execute preflop
     lastPlayer = 1;
     Card[][] holeCards = p.deal(players.length);
