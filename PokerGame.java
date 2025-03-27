@@ -36,6 +36,7 @@ class PokerGame {
       players[i].setHand(holeCards[i]);
     for (int i = 2;; i++) {
       if (players[i].inHand() && (pot[i] < currBet || (players[i].status() == 2 && currBet == blinds[1]))) {
+        Utils.clearScreen();
         System.out.println(players[i].getName().toUpperCase() + "'s turn!");
         System.out.println("Current pot: $" + p.getChips());
         currAction = players[i].action("preflop", pot[i], currBet, blinds[1]);
