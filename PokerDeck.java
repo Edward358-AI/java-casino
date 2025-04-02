@@ -1,7 +1,6 @@
 import java.util.*;
 
 class PokerDeck extends Deck { // a deck specifically designed to facilitate a game of poker
-  private int pot;
   private Card[] board;
 
   public PokerDeck() {
@@ -9,22 +8,13 @@ class PokerDeck extends Deck { // a deck specifically designed to facilitate a g
     board = new Card[5];
   }
 
+  public Card[] getBoard() {
+    return Arrays.copyOf(board, board.length);
+  }
+
   public void reset() { // resets for new hand
     super.reset();
-    pot = 0;
     board = new Card[5];
-  }
-
-  public int getPot() {
-    return pot;
-  }
-
-  public void addChips(int c) {
-    pot += c;
-  }
-
-  public int getChips() {
-    return pot;
   }
 
   public Card[] deal() { // deals out the cards required for the board
@@ -109,9 +99,9 @@ class PokerDeck extends Deck { // a deck specifically designed to facilitate a g
     return rank;
   }
 
-  public Card[] getBestHand(PokerPlayer p) { // gets the best possible hand given a players hand and the community cards
+  public Card[] getBestHand(Card[] h) { // gets the best possible hand given a players hand and the community cards
     // use board and player's hand
-    ArrayList<Card> hand = new ArrayList<Card>(Arrays.asList(p.getHand()));
+    ArrayList<Card> hand = new ArrayList<Card>(Arrays.asList(h));
     hand.addAll(Arrays.asList(board));
     int currRank = Integer.MAX_VALUE;
     ArrayList<ArrayList<Card>> currHand = new ArrayList<ArrayList<Card>>();
@@ -165,70 +155,69 @@ class PokerDeck extends Deck { // a deck specifically designed to facilitate a g
     else {
       if (!Arrays.equals(num1, num2)) { // checks if the arrays are equal to immediately determine if needs to return 0
         if (Arrays.asList(useMode).contains((Integer) H1)) { 
-          if (H1 != 7 && H1 != 8) { // below code does NOT apply for two pair and one pair hands
             if (mode(num1) != mode(num2))
               return (mode(num1) > mode(num2)) ? 1 : 2;
-            else
-              return 0;
-          } else if (H1 == 7) { // compares two 2-pair hands
-            int[] mode1 = new int[2]; // stores the pairs for hand 1
-            int[] mode2 = new int[2]; // stores the pairs for hand 2
-            int[] sNum1 = new int[3]; // stores hand 1 after removing the first pair, temporary
-            int[] sNum2 = new int[3]; // stores hand 2 after removing the first pair, temporary
-            // below code acquires the 2 pairs in each hand
-            int i1 = 0;
-            int i2 = 0;
-            int m1 = mode(num1);
-            int m2 = mode(num2);
-            mode1[0] = m1;
-            mode2[0] = m2;
-            for (int i = 0; i < 5; i++) {
-              if (num1[i] != m1) {
-                sNum1[i1] = num1[i];
-                i1++;
-              }
-              if (num2[i] != m2) {
-                sNum2[i2] = num2[i];
-                i2++;
-              }
-            }
-            mode1[1] = mode(sNum1);
-            mode2[1] = mode(sNum2);
-            //sorts mode arrays to check if theyre equal
-            Arrays.sort(mode1);
-            Arrays.sort(mode2);
-            if (!Arrays.equals(mode1, mode2)) {
-              return (mode1[0] > mode2[0] || mode1[1] > mode2[1]) ? 1 : 2; // if the pairs are not same, compare them directly
-            } else { // else, check the "kicker" card, or the last card to determine equality
-              int last1 = 0;
-              int last2 = 0;
-              for (int i = 0; i < 3; i++) {
-                if (sNum1[i] != mode1[0] || sNum1[i] != mode1[1])
-                  last1 = sNum1[i];
-                if (sNum2[i] != mode2[0] || sNum2[i] != mode2[1])
-                  last2 = sNum2[i];
-              }
-              return (last1 != last2) ? ((last1 > last2) ? 1 : 2) : 0;
-            }
-          } else { // compares two 1-pair hands
-            int m1 = mode(num1);
-            int m2 = mode(num2);
-            if (m1 == m2) {
-              int r = 0;
-              for (int i = 4; i >= 0; i--) {
-                if (num1[i] > num2[i]) {
-                  r = 1;
-                  break;
-                } else if (num1[i] < num2[i]) {
-                  r = 2;
-                  break;
+            else {
+              if (H1 == 7) { // compares two 2-pair hands
+                int[] mode1 = new int[2]; // stores the pairs for hand 1
+                int[] mode2 = new int[2]; // stores the pairs for hand 2
+                int[] sNum1 = new int[3]; // stores hand 1 after removing the first pair, temporary
+                int[] sNum2 = new int[3]; // stores hand 2 after removing the first pair, temporary
+                // below code acquires the 2 pairs in each hand
+                int i1 = 0;
+                int i2 = 0;
+                int m1 = mode(num1);
+                int m2 = mode(num2);
+                mode1[0] = m1;
+                mode2[0] = m2;
+                for (int i = 0; i < 5; i++) {
+                  if (num1[i] != m1) {
+                    sNum1[i1] = num1[i];
+                    i1++;
+                  }
+                  if (num2[i] != m2) {
+                    sNum2[i2] = num2[i];
+                    i2++;
+                  }
+                }
+                mode1[1] = mode(sNum1);
+                mode2[1] = mode(sNum2);
+                //sorts mode arrays to check if theyre equal
+                Arrays.sort(mode1);
+                Arrays.sort(mode2);
+                if (!Arrays.equals(mode1, mode2)) {
+                  return (mode1[0] > mode2[0] || mode1[1] > mode2[1]) ? 1 : 2; // if the pairs are not same, compare them directly
+                } else { // else, check the "kicker" card, or the last card to determine equality
+                  int last1 = 0;
+                  int last2 = 0;
+                  for (int i = 0; i < 3; i++) {
+                    if (sNum1[i] != mode1[0] || sNum1[i] != mode1[1])
+                      last1 = sNum1[i];
+                    if (sNum2[i] != mode2[0] || sNum2[i] != mode2[1])
+                      last2 = sNum2[i];
+                  }
+                  return (last1 != last2) ? ((last1 > last2) ? 1 : 2) : 0;
+                }
+              } else { // compares any other pair/set hands (1 pair, 3 of a kind, 4 of a kind, full house)
+                int m1 = mode(num1);
+                int m2 = mode(num2);
+                if (m1 == m2) {
+                  int r = 0;
+                  for (int i = 4; i >= 0; i--) {
+                    if (num1[i] > num2[i]) {
+                      r = 1;
+                      break;
+                    } else if (num1[i] < num2[i]) {
+                      r = 2;
+                      break;
+                    }
+                  }
+                  return r;
+                } else {
+                  return (m1 > m2) ? 1 : 2;
                 }
               }
-              return r;
-            } else {
-              return (m1 > m2) ? 1 : 2;
             }
-          }
         } else { // compares any non pair/set related hands, like flushes, straights, straight flush, high card
           int r = 0;
           for (int i = 4; i >= 0; i--) {

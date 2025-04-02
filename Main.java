@@ -7,7 +7,7 @@ public class Main {
     PokerDeck h1 = new PokerDeck(); // testing purposes only, temporary
     Blackjack game = new Blackjack(new BJPlayer("player"));
     Deck d = new Deck();
-    PokerPlayer[] p = {new PokerPlayer("edward"), new PokerBot(), new PokerBot(), new PokerBot(), new PokerBot()};
+    PokerPlayer[] p = {new PokerPlayer("chigga"), new PokerBot(), new PokerBot(), new PokerBot(), new PokerBot()};
     PokerGame poker = new PokerGame(p);
     poker.init();
   }
