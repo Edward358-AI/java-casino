@@ -15,5 +15,20 @@ public class BJPlayer extends Player {
     hand.clear();
   }
 
-  
+  public int[] action(int prevBet, int c) {
+    int[] out = new int[2];
+    // 0 betting
+    // 1 dealing
+    // 2 player's turn // can only hit or stand, no double down or surrender so bet is not made into a method
+    // 3 dealer's turn
+    // external method to check if win
+    switch(c) {
+      case 0:
+        out[0] = BJPlayer.getValidInt("Place your bet: ", 0);
+        //System.out.println(out[0]);
+        return out;
+    }
+    //System.out.println("Your hand: " + hand[0] + " " + hand[1]);
+    return null;
+  }
 }

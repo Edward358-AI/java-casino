@@ -3,6 +3,7 @@ import java.util.*;
 public class Blackjack {
   private Deck deck; // deal, reset
   private ArrayList<BJPlayer> players = new ArrayList<BJPlayer>();
+  private static Scanner sc = new Scanner(System.in);
 
   public Blackjack(BJPlayer p) {
     deck = new Deck();
@@ -13,11 +14,11 @@ public class Blackjack {
   private void main() {
     // run action() function on each player before dealing cards to collect $$$
     // action to print info // or game print board-equivalent
+    players.get(0).action(0, 0); // bet
     for(BJPlayer player:players) { // give all players two cards
       player.add(deck.deal()[0]);
       player.add(deck.deal()[0]);
     }
-
     
   }
 
@@ -70,4 +71,18 @@ public class Blackjack {
     return runningSum;
   }
 
+  public static int getValidInt(String message, int min) { // override (maybe overload); dont need bounds sometimes
+    int x;
+    while (true) {
+      System.out.println(message);
+      try {
+        String z = sc.nextLine().trim();
+        x = Integer.parseInt(z);
+        if (x>=min) break;
+      } catch (Exception e) {
+        continue;
+      }
+    }
+    return x;
+  }
 }
