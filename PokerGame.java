@@ -4,30 +4,38 @@ class PokerGame {
   private PokerDeck p = new PokerDeck();
   private PokerPlayer[] players;
   private int[] blinds = { 10, 20 }; // current blinds size
-  private PokerPlayer og; // original first player
+  private PokerPlayer og; // original first player, used for blind increasing
   private int[] pot; // keeps track of total contribution for each player in current round
   private int lastPlayer; // keeps track of the last player to act
   private int currBet; // current chips to call
   private int[] currAction; // keeps track of current players action
   private Scanner sc = new Scanner(System.in);
   private ArrayList<PokerPot> pots; // all the pots of chips
+  private PokerPlayer main;
 
-  public PokerGame(PokerPlayer[] players) {
+  public PokerGame(PokerPlayer[] players) { // initialiaze a poker game
     this.players = players;
+    main = players[0];
+    // shuffles player positions
+    List<PokerPlayer> temp = Arrays.asList(players);
+    Collections.shuffle(temp);
+    players = temp.toArray(new PokerPlayer[players.length]);
+
     og = this.players[0];
     pot = new int[players.length];
     pots = new ArrayList<>();
     pots.add(new PokerPot("Main"));
   }
 
-  public void init() {
+  public void init() { // start the main loop
     players[0].setStatus(1);
     players[1].setStatus(2);
     preflop();
   }
 
   private void endGame() {
-    System.out.println("Game Over! You ran out of chips!");
+    System.out.print("Game Over!");
+
   }
 
   private void preflop() { // code to execute preflop
@@ -141,9 +149,10 @@ class PokerGame {
     if (pots.size() > 1) for (int i = pots.size() - 1; i > 0; i++) pots.remove(i);
     players[0].setStatus(0);
     players[1].setStatus(0);
-    PokerPlayer first = players[0];
-    for (int i = 1; i < players.length; i++)
-      players[i - 1] = players[i];
+    PokerPlayer first = players[players.length-1];
+    for (int i = players.length - 1; i > 0; i--)
+      players[i] = players[i-1];
+    players[0] = first;
     if (players[0].equals(og)) {
       blinds[0] *= 2;
       blinds[1] *= 2;
@@ -172,7 +181,7 @@ class PokerGame {
     } else endGame();
   }
 
-  private void handleAction(int i) {
+  private void handleAction(int i) { // do certain things based on a player's action
     switch (currAction[0]) {
       case 1:
         distributeBet(i);
@@ -213,7 +222,7 @@ class PokerGame {
 
   }
 
-  private void distributeBet(int i) {
+  private void distributeBet(int i) { // distributes a bet that has been made
     int remain = currAction[1];
     for (PokerPot p : pots) {
       if (remain < p.maxContribution()) {
