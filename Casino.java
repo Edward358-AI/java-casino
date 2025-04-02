@@ -24,6 +24,12 @@ public class Casino { // will operate blackjack/poker games
       }
       p = new PokerGame(new PokerPlayer[]{mainPlayer, new PokerBot(), new PokerBot(), new PokerBot(), new PokerBot()});
       p.init();
+    } else {
+      BJPlayer m = new BJPlayer(name);
+      m.removeChips(m.getChips());
+      m.addChips(buyIn);
+      bj = new Blackjack(m);
+      bj.initialize();
     }
   }
 }
