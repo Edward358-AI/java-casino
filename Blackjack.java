@@ -3,7 +3,6 @@ import java.util.*;
 public class Blackjack {
   private Deck deck; // deal, reset
   private ArrayList<BJPlayer> players = new ArrayList<BJPlayer>();
-  private static Scanner sc = new Scanner(System.in);
 
   public Blackjack(BJPlayer p) {
     deck = new Deck();
@@ -71,18 +70,4 @@ public class Blackjack {
     return runningSum;
   }
 
-  public static int getValidInt(String message, int min) { // override (maybe overload); dont need bounds sometimes
-    int x;
-    while (true) {
-      System.out.println(message);
-      try {
-        String z = sc.nextLine().trim();
-        x = Integer.parseInt(z);
-        if (x>=min) break;
-      } catch (Exception e) {
-        continue;
-      }
-    }
-    return x;
-  }
 }
