@@ -32,11 +32,11 @@ public class PokerPlayer extends Player {
     switch (round) {
       case "preflop":
         int act;
-        System.out.println("Your hand: " + hand[0].getValue() + " " + hand[1].getValue());
-        System.out.println("Current amount to call is $" + bet + "." + " You have $" + super.getChips()
+        System.out.println("Your hand: " + hand[0].getValue() + "  " + hand[1].getValue());
+        System.out.println("Current amount to call is ✨" + bet + "." + " You have ✨" + super.getChips()
             + "." + ((status == 1) ? " You are in small blind position."
                 : ((status == 2) ? "You are in big blind position." : "")));
-        System.out.print("You have contributed $" + prevBet + " for this round. What is your action?\n");
+        System.out.print("You have contributed ✨" + prevBet + " for this round. What is your action?\n");
         switch (status) {
           case 2:
             if (prevBet == bet)
@@ -78,10 +78,10 @@ public class PokerPlayer extends Player {
       default:
         int flop;
         System.out.println("Your hand is " + hand[0].getValue() + " " + hand[1].getValue());
-        System.out.println("Current amount to call is $" + bet + "." + " You have $" + super.getChips()
+        System.out.println("Current amount to call is ✨" + bet + "." + " You have ✨" + super.getChips()
             + "." + ((status == 1) ? " You are in small blind position."
                 : ((status == 2) ? "You are in big blind position." : "")));
-        System.out.print("You have contributed $" + prevBet + " for this round. What is your action?\n");
+        System.out.print("You have contributed ✨" + prevBet + " for this round. What is your action?\n");
         if (bet == 0)
           flop = Player.getValidInt("[1] Check [2] Fold [3] Bet [4] All In", 1, 4);
         else

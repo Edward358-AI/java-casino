@@ -28,6 +28,14 @@ class PokerGame {
   }
 
   public void init() { // start the main loop
+    System.out
+        .println("\n\nWelcome to the Texas Hold'em table!\nHere are the players in today and their current buy-ins!");
+    for (PokerPlayer p : players) {
+      System.out.println(p.toString());
+    }
+    System.out.println("Press enter to continue...");
+    sc.nextLine();
+    Utils.clearScreen();
     players[0].setStatus(1);
     players[1].setStatus(2);
     preflop();
@@ -35,7 +43,10 @@ class PokerGame {
 
   private void endGame() {
     System.out.print("Game Over!");
-
+    if (main.getChips() > 0)
+      System.out.println("You ended the game early.");
+    else
+      System.out.println("You ran out of chips");
   }
 
   private void preflop() { // code to execute preflop
@@ -56,21 +67,41 @@ class PokerGame {
     int i = 2;
     do {
       if (players[i].inHand() && players[i].getChips() > 0) {
-        System.out.println(players[i].getName().toUpperCase() + "'s turn!");
-        for (PokerPot k : pots)
-          System.out.println(k.toString());
-        if (players[i] instanceof PokerBot) {
-          PokerBot temp = (PokerBot) players[i];
-          currAction = temp.action("preflop", pot[i], currBet, blinds[1], new Card[5]);
-        } else
-          currAction = players[i].action("preflop", pot[i], currBet, blinds[1]);
-        handleAction(i);
-        System.out.println();
+        if (players[i].inHand()) {
+          System.out.println(players[i].getName().toUpperCase() + "'s turn!");
+          if (players[i] instanceof PokerBot) {
+            System.out.println("Their current stack: ✨" + players[i].getChips());
+            try {
+              Thread.sleep(1000);
+            } catch (InterruptedException e) {
+              e.printStackTrace();
+            }
+          }
+          for (PokerPot k : pots)
+            System.out.println(k.toString());
+          if (players[i].getChips() > 0) {
+            if (players[i] instanceof PokerBot) {
+              PokerBot temp = (PokerBot) players[i];
+              currAction = temp.action("preflop", pot[i], currBet, blinds[1], new Card[5]);
+            } else
+              currAction = players[i].action("preflop", pot[i], currBet, blinds[1]);
+            handleAction(i);
+          } else if (!(players[i] instanceof PokerBot)) {
+            System.out
+                .println("Your hand: " + players[i].getHand()[0].getValue() + " " + players[i].getHand()[1].getValue());
+          }
+          System.out.println();
+          try {
+            Thread.sleep(1500);
+          } catch (InterruptedException e) {
+            e.printStackTrace();
+          }
+        }
+        if (i == players.length - 1)
+          i = 0;
+        else
+          i++;
       }
-      if (i == players.length - 1)
-        i = 0;
-      else
-        i++;
     } while (i != lastPlayer && stillIn() > 1);
     System.out.println();
     for (PokerPot k : pots)
@@ -90,35 +121,48 @@ class PokerGame {
     lastPlayer = 0;
     currBet = 0;
     int i = 0;
-    boolean printed = false;
     for (int j = 0; j < 3; j++) {
       do {
-        if (players[i].inHand() && players[i].getChips() > 0) {
-          printed = true;
+        if (players[i].inHand()) {
           System.out.println(players[i].getName().toUpperCase() + "'s turn!");
-          System.out.println("Board: " + b[0].getValue() + " - " + b[1].getValue() + " - " + b[2].getValue()
-              + ((j > 0) ? (" - " + b[3].getValue()) : "") + ((j == 2) ? " - " + b[4].getValue() : ""));
+          if (players[i] instanceof PokerBot) {
+            System.out.println("Their current stack: ✨" + players[i].getChips());
+            try {
+              Thread.sleep(1000);
+            } catch (InterruptedException e) {
+              e.printStackTrace();
+            }
+          }
+          System.out.println("Board: " + b[0].getValue() + "  - " + b[1].getValue() + "  - " + b[2].getValue()
+              + ((j > 0) ? ("  - " + b[3].getValue()) : "") + ((j == 2) ? "  - " + b[4].getValue() : ""));
           for (PokerPot k : pots)
             System.out.println(k.toString());
-          if (players[i] instanceof PokerBot) {
-            PokerBot temp = (PokerBot) players[i];
-            currAction = temp.action("postflop", pot[i], currBet, blinds[1], b);
-          } else
-            currAction = players[i].action("postflop", pot[i], currBet, blinds[1]);
-          handleAction(i);
+
+          if (players[i].getChips() > 0) {
+            if (players[i] instanceof PokerBot) {
+              PokerBot temp = (PokerBot) players[i];
+              currAction = temp.action("postflop", pot[i], currBet, blinds[1], b);
+            } else
+              currAction = players[i].action("postflop", pot[i], currBet, blinds[1]);
+            handleAction(i);
+          } else if (!(players[i] instanceof PokerBot)) {
+            System.out
+                .println("Your hand: " + players[i].getHand()[0].getValue() + " " + players[i].getHand()[1].getValue());
+          }
           System.out.println();
-        } else if (!(players[i] instanceof PokerBot)) System.out.println("Your hand: " + players[i].getHand()[0].getValue() + " " + players[i].getHand()[1].getValue());
+          try {
+            Thread.sleep(1500);
+          } catch (InterruptedException e) {
+            e.printStackTrace();
+          }
+        }
+
         if (i == players.length - 1)
           i = 0;
         else
           i++;
       } while (i != lastPlayer && stillIn() > 1);
-      if (!printed) {
-        System.out.println("Board: " + b[0].getValue() + " - " + b[1].getValue() + " - " + b[2].getValue()
-              + ((j > 0) ? (" - " + b[3].getValue()) : "") + ((j == 2) ? " - " + b[4].getValue() : ""));
-      }
       pot = new int[players.length];
-      printed = false;
       i = 0;
       lastPlayer = 0;
       currBet = 0;
@@ -146,19 +190,20 @@ class PokerGame {
   private void newHand() { // setup for new hand
     boolean gameOver = false;
     p.reset();
-    if (pots.size() > 1) for (int i = pots.size() - 1; i > 0; i++) pots.remove(i);
+    if (pots.size() > 1)
+      for (int i = pots.size() - 1; i > 0; i++)
+        pots.remove(i);
     players[0].setStatus(0);
     players[1].setStatus(0);
-    PokerPlayer first = players[players.length-1];
+    PokerPlayer first = players[players.length - 1];
     for (int i = players.length - 1; i > 0; i--)
-      players[i] = players[i-1];
+      players[i] = players[i - 1];
     players[0] = first;
     if (players[0].equals(og)) {
       blinds[0] *= 2;
       blinds[1] *= 2;
       System.out.println("Round finished! Increasing blind sizes...");
     }
-    players[players.length - 1] = first;
     for (int i = 0; i < players.length; i++) {
       if (players[i].getChips() > 0)
         players[i].setInHand(true);
@@ -178,7 +223,8 @@ class PokerGame {
       sc.nextLine();
       Utils.clearScreen();
       preflop();
-    } else endGame();
+    } else
+      endGame();
   }
 
   private void handleAction(int i) { // do certain things based on a player's action
@@ -188,13 +234,13 @@ class PokerGame {
         pot[i] += players[i].removeChips(currAction[1]);
         if (players[i].status() == 2) {
           if (currAction[1] != 0)
-            System.out.println(players[i].getName() + " in big blind calls for $" + currBet + ".");
+            System.out.println(players[i].getName() + " in big blind calls for ✨" + currBet + ".");
           else
             System.out.println(players[i].getName() + " in big blind checks.");
         } else {
           if (currAction[1] != 0)
             System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
-                + "calls for $" + currBet + ".");
+                + "calls for ✨" + currBet + ".");
           else
             System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
                 + "checks.");
@@ -213,10 +259,10 @@ class PokerGame {
         lastPlayer = i;
         if (players[i].status() == 2)
           System.out.println(players[i].getName() + " in big blind " + ((currBet == 0) ? "bets" : "raises to")
-              + " $" + pot[i] + ".");
+              + " ✨" + pot[i] + ".");
         else
           System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
-              + ((currBet == 0) ? "bets" : "raises to") + " $" + pot[i]);
+              + ((currBet == 0) ? "bets" : "raises to") + " ✨" + pot[i] + ".");
         break;
     }
 

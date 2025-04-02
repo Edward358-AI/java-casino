@@ -4,11 +4,11 @@ public class Deck { // deck of Cards
   private ArrayList<Card> deck = new ArrayList<Card>();
   private ArrayList<Card> removed = new ArrayList<Card>(); // keeps track of cards dealt away to be more efficient when returning them to deck
   public Deck() {
-    String[] temp = { "A♠", "A♣", "A♦", "A♥", "2♠", "2♣", "2♦", "2♥", "3♠", "3♣", "3♦", "3♥", "4♠",
-        "4♣", "4♦", "4♥", "5♠", "5♣", "5♦", "5♥", "6♠", "6♣", "6♦", "6♥", "7♠", "7♣",
-        "7♦", "7♥", "8♠", "8♣", "8♦", "8♥", "9♠", "9♣", "9♦", "9♥", "T♠", "T♣",
-        "T♦", "T♥", "J♠", "J♣", "J♦", "J♥", "Q♠", "Q♣", "Q♦", "Q♥", "K♠", "K♣",
-        "K♦", "K♥" }; // temporary array of all string values for card
+    String[] temp = { "A♠️", "A♣️", "A♦️", "A♥️", "2♠️", "2♣️", "2♦️", "2♥️", "3♠️", "3♣️", "3♦️", "3♥️", "4♠️",
+        "4♣️", "4♦️", "4♥️", "5♠️", "5♣️", "5♦️", "5♥️", "6♠️", "6♣️", "6♦️", "6♥️", "7♠️", "7♣️",
+        "7♦️", "7♥️", "8♠️", "8♣️", "8♦️", "8♥️", "9♠️", "9♣️", "9♦️", "9♥️", "T♠️", "T♣️",
+        "T♦️", "T♥️", "J♠️", "J♣️", "J♦️", "J♥️", "Q♠️", "Q♣️", "Q♦️", "Q♥️", "K♠️", "K♣️",
+        "K♦️", "K♥️" }; // temporary array of all string values for card
     for (int i = 0; i < temp.length; i++) {
       deck.add(new Card(temp[i]));
     }
