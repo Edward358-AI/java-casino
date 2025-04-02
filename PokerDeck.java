@@ -191,9 +191,9 @@ class PokerDeck extends Deck { // a deck specifically designed to facilitate a g
                   int last1 = 0;
                   int last2 = 0;
                   for (int i = 0; i < 3; i++) {
-                    if (sNum1[i] != mode1[0] || sNum1[i] != mode1[1])
+                    if (sNum1[i] != mode1[0] && sNum1[i] != mode1[1])
                       last1 = sNum1[i];
-                    if (sNum2[i] != mode2[0] || sNum2[i] != mode2[1])
+                    if (sNum2[i] != mode2[0] && sNum2[i] != mode2[1])
                       last2 = sNum2[i];
                   }
                   return (last1 != last2) ? ((last1 > last2) ? 1 : 2) : 0;
