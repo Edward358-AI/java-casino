@@ -9,7 +9,7 @@ class PokerDeck extends Deck { // a deck specifically designed to facilitate a g
   }
 
   public Card[] getBoard() {
-    return Arrays.copyOf(board, board.length);
+    return board.clone();
   }
 
   public void reset() { // resets for new hand
@@ -21,7 +21,7 @@ class PokerDeck extends Deck { // a deck specifically designed to facilitate a g
     for (int i = 0; i < 5; i++) {
       board[i] = super.deal()[0];
     }
-    return Arrays.copyOf(board, 5);
+    return board.clone();
   }
 
   public Card[][] deal(int players) { // deals out cards to int players players

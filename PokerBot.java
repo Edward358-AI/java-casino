@@ -2,6 +2,7 @@ import java.util.*;
 
 public class PokerBot extends PokerPlayer {
   private boolean opMode = false;
+
   public PokerBot() {
     super("temp");
     randomName();
@@ -9,39 +10,75 @@ public class PokerBot extends PokerPlayer {
       opMode = true;
     }
   }
-  public void randomName () {
+
+  public void randomName() {
     super.setName(Names.getName());
   }
-  public int[] action(String round, int prevBet, int bet, int blind) {
-    int[] action = new int[2];
-    int rand =  (int) (Math.random() * 100);
-    if (rand > 70) {
-      action[0] = 2;
-      super.setInHand(false);
-    } else {
-      action[0] = 1;
-      action[1] = bet - prevBet;
-    }
-    return action;
-  }
+
   public int[] action(String round, int prevBet, int bet, int blind, Card[] board) {
     int[] action = new int[2];
-    int rand =  (int) (Math.random() * 100);
-    if (rand > 85) {
-      action[0] = 2;
-      super.setInHand(false);
+    double rand = Math.random();
+    if (bet < super.getChips()) {
+      if (rand >= 0 && rand < 0.75) {
+        action[0] = 1;
+        if (bet > 0) {
+          action[1] = (bet >= super.getChips()) ? super.getChips() : bet - prevBet;
+        } else
+          action[1] = (bet == 0) ? 0 : bet - prevBet;
+      } else if (rand >= 0.75 && rand < 0.85) {
+        if (bet + prevBet + super.getChips() / 10 < super.getChips()) {
+          int max;
+          int min;
+          if (round.equals("preflop")) {
+            max = super.getChips() / 10 + bet;
+            min = bet*2;
+          } else {
+            if (bet == 0) {
+              max = super.getChips() / 10 + bet;
+              min = blind;
+  
+            } else {
+              max = super.getChips() / 10 + bet;
+              min = bet*2;
+            }
+          }
+          action[0] = 3;
+          action[1] = (int) (Math.random() * (max - min + 1) + min);
+        } else {
+          if (Math.random() > 0.85) {
+            action[0] = 4;
+            action[1] = super.getChips();
+          } else {
+            action[0] = 2;
+            
+          }
+        }
+      } else if (rand >= 0.85 && rand < 0.97 ) {
+        action[0] = (bet == 0) ? 1 : 2;
+      } else {
+        action[0] = 4;
+        action[1] = super.getChips();
+      }
     } else {
-      action[0] = 1;
-      if (bet > 0) {
-        action[1] = (bet >= super.getChips()) ? super.getChips() : bet - prevBet;
-      } else action[1] = (bet == 0) ? 0 : bet - prevBet;
+      if (Math.random() > 0.8) {
+        action[0] = 4;
+        action[1] = super.getChips();
+      } else {
+        action[0] = 2;
+        
+      }
     }
     return action;
   }
 }
 
 class Names { // avoid dupe names
-  private static ArrayList<String> names = new ArrayList<String>(Arrays.asList(new String[]{"Bob", "Rob", "Alice", "Aaron", "Sam", "Eddie", "Rachel", "Mike", "Charlie", "Ellie", "Colin", "Kevin", "Victor", "Robin", "Jean", "Katheryne", "Dan", "Mark", "Richard", "Dana", "Elena", "Joe", "Juan", "Tony", "Ella", "Sammy", "Edward", "Ethan", "Jonathan", "Jason", "Evelyn", "Josie", "Sophia", "Bryan", "Allen", "Alan", "Kim", "Chloe", "Claire", "Jerry", "Aventurine"}));
+  private static ArrayList<String> names = new ArrayList<String>(
+      Arrays.asList(new String[] { "Bob", "Rob", "Alice", "Aaron", "Sam", "Eddie", "Rachel", "Mike", "Charlie", "Ellie",
+          "Colin", "Kevin", "Victor", "Robin", "Jean", "Katheryne", "Dan", "Mark", "Richard", "Dana", "Elena", "Joe",
+          "Juan", "Tony", "Ella", "Sammy", "Edward", "Ethan", "Jonathan", "Jason", "Evelyn", "Josie", "Sophia", "Bryan",
+          "Allen", "Alan", "Kim", "Chloe", "Claire", "Jerry", "Aventurine" }));
+
   public static String getName() {
     return names.remove((int) (Math.random() * names.size()));
   }

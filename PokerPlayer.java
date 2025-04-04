@@ -37,16 +37,21 @@ public class PokerPlayer extends Player {
             + "." + ((status == 1) ? " You are in small blind position."
                 : ((status == 2) ? "You are in big blind position." : "")));
         System.out.print("You have contributed ✨" + prevBet + " for this round. What is your action?\n");
-        switch (status) {
-          case 2:
-            if (prevBet == bet)
-              act = Player.getValidInt("[1] Check [2] Fold [3] Raise [4] All In", 1, 4);
-            else
+        if (bet < super.getChips()) {
+          switch (status) {
+            case 2:
+              if (prevBet == bet)
+                act = Player.getValidInt("[1] Check [2] Fold [3] Raise [4] All In", 1, 4);
+              else
+                act = Player.getValidInt("[1] Call [2] Fold [3] Raise [4] All In", 1, 4);
+              break;
+            default:
               act = Player.getValidInt("[1] Call [2] Fold [3] Raise [4] All In", 1, 4);
-            break;
-          default:
-            act = Player.getValidInt("[1] Call [2] Fold [3] Raise [4] All In", 1, 4);
-            break;
+              break;
+          }
+        } else {
+          act = Player.getValidInt("[1] Fold [2] All In", 1, 2);
+          act = (act == 1) ? 2 : 4;
         }
         action[0] = act;
         switch (act) {
@@ -57,19 +62,18 @@ public class PokerPlayer extends Player {
               action[1] = bet - prevBet;
             break;
           case 2:
-            super.setInHand(false);
             break;
           case 3:
             int chips = getValidInt(
-                "How much would you like to raise the current bet by? Min - " + bet + ", Max - "
-                    + (super.getChips() - bet),
-                bet,
-                super.getChips() - bet);
-            if (chips == super.getChips() - bet) {
+                "What would you like to raise the current bet to? Min - " + (bet*2) + ", Max - "
+                    + super.getChips(),
+                bet*2,
+                super.getChips());
+            if (chips == super.getChips()) {
               action[0] = 4;
               action[1] = super.getChips();
             } else
-              action[1] = chips + bet - prevBet;
+              action[1] = chips - prevBet;
             break;
           case 4:
             action[1] = super.getChips();
@@ -82,38 +86,43 @@ public class PokerPlayer extends Player {
             + "." + ((status == 1) ? " You are in small blind position."
                 : ((status == 2) ? "You are in big blind position." : "")));
         System.out.print("You have contributed ✨" + prevBet + " for this round. What is your action?\n");
-        if (bet == 0)
-          flop = Player.getValidInt("[1] Check [2] Fold [3] Bet [4] All In", 1, 4);
-        else
-          flop = Player.getValidInt("[1] Call [2] Fold [3] Raise [4] All In", 1, 4);
+        if (bet < super.getChips()) {
+          if (bet == 0)
+            flop = Player.getValidInt("[1] Check [2] Fold [3] Bet [4] All In", 1, 4);
+          else
+            flop = Player.getValidInt("[1] Call [2] Fold [3] Raise [4] All In", 1, 4);
+        } else {
+          flop = Player.getValidInt("[1] Fold [2] All In", 1, 2);
+          flop = (flop == 1) ? 2 : 4;
+        }
         action[0] = flop;
         switch (flop) {
           case 1:
             action[1] = (bet == 0) ? 0 : bet - prevBet;
             break;
           case 2:
-            super.setInHand(false);
+            ;
             break;
           case 3:
             int chips;
             if (bet != 0) {
               chips = getValidInt(
-                  "How much would you like to raise the current bet by? Min - " + bet + ", Max - "
-                      + (super.getChips() - bet),
-                  bet,
-                  super.getChips() - bet);
-              if (chips == super.getChips() - bet)
+                  "What would you like to raise the current bet to? Min - " + (bet*2) + ", Max - "
+                      + super.getChips(),
+                  bet*2,
+                  super.getChips());
+              if (chips == super.getChips())
                 action[0] = 4;
             } else {
               chips = getValidInt(
-                  "How much would you like to raise the current bet by? Min - " + blind + ", Max - "
+                  "What would you like to raise the current bet to? Min - " + blind + ", Max - "
                       + super.getChips(),
                   blind,
                   super.getChips());
               if (chips == super.getChips())
                 action[0] = 4;
             }
-            action[1] = chips + bet - prevBet;
+            action[1] = chips  - prevBet;
             break;
           case 4:
             action[1] = super.getChips();
