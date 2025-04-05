@@ -226,9 +226,6 @@ class PokerGame {
       System.out.println("Press Enter to continue:");
       sc.nextLine();
       Utils.clearScreen();
-      System.out.println(Arrays.toString(pot.getPlayers()));
-      System.out.println(pot.getPlayers()[0].status());
-      System.out.println(pot.getPlayers()[1].status());
       preflop();
     } else
       endGame();
