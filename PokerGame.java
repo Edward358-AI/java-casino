@@ -71,6 +71,7 @@ class PokerGame {
     currConts[1] += blinds;
 
     int i = 2;
+    System.out.println("*** PREFLOP ***\n");
     do {
       if (players[i].inHand() && players[i].getChips() > 0) {
         if (players[i].inHand()) {
@@ -130,6 +131,7 @@ class PokerGame {
     currBet = 0;
     int i = 0;
     for (int j = 0; j < 3; j++) {
+      System.out.println(((j == 0) ? "*** THE FLOP ***\n" : ((j == 1) ? "*** THE TURN (4th Street) ***\n" : "*** THE RIVER (5th Street) ***\n")));
       do {
         if (players[i].inHand()) {
           System.out.println(players[i].getName().toUpperCase() + "'s turn!");
@@ -224,6 +226,9 @@ class PokerGame {
       System.out.println("Press Enter to continue:");
       sc.nextLine();
       Utils.clearScreen();
+      System.out.println(Arrays.toString(pot.getPlayers()));
+      System.out.println(pot.getPlayers()[0].status());
+      System.out.println(pot.getPlayers()[1].status());
       preflop();
     } else
       endGame();
@@ -267,7 +272,7 @@ class PokerGame {
         lastPlayer = i;
         pot.addPlayerContribution(i, currAction[1]);
         currConts[i] += currAction[1];
-        currBet = currConts[i];
+        if (currConts[i] > currBet) currBet = currConts[i];
         break;
     }
 

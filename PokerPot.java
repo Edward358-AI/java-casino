@@ -13,7 +13,7 @@ public class PokerPot {
     pots = new ArrayList<>();
     pots.add(0);
     eligible = new ArrayList<>();
-    eligible.add(new ArrayList<>(Arrays.asList(p)));
+    eligible.add(new ArrayList<>());
     maxBet = 0;
   }
 
@@ -25,20 +25,23 @@ public class PokerPot {
     }
   }
 
+  // testing purposes
+  public void setCont(int[] cont) {
+    contributions = cont;
+  }
+
   public void resetPot(PokerPlayer[] players) {
     p = players;
     contributions = new int[p.length];
     pots.clear();
     eligible.clear();
     pots.add(0);
-    eligible.add(new ArrayList<>(Arrays.asList(p)));
+    eligible.add(new ArrayList<>());
     maxBet = 0;
   }
 
   public void addPlayerContribution(int i, int amount) {
     contributions[i] += p[i].removeChips(amount);
-    if (amount > contributions[i])
-      maxBet = contributions[i];
   }
 
   public int[] getContributions() {
@@ -53,31 +56,41 @@ public class PokerPot {
     pots.clear();
     eligible.clear();
     pots.add(0);
-    eligible.add(new ArrayList<>(Arrays.asList(p)));
+    eligible.add(new ArrayList<>());
+    for (int i = 0; i < p.length; i++) if (contributions[i] > 0) eligible.get(0).add(p[i]);
     checkFolds();
     int[] cont = contributions.clone();
-    for (int c : contributions) if (c > maxBet) maxBet = c;
+    for (int c : contributions)
+      if (c > maxBet)
+        maxBet = c;
     ArrayList<Integer> thresholds = new ArrayList<>();
     for (int c = 0; c < cont.length; c++) {
-      if (p[c].getChips() == 0 && cont[c] < maxBet) {
+      if (p[c].getChips() == 0 && !thresholds.contains(cont[c])) {
         thresholds.add(cont[c]);
       }
     }
     Collections.sort(thresholds);
+    for (int c = thresholds.size() - 1; c > 0; c--) thresholds.set(c, thresholds.get(c) - thresholds.get(c-1));
+    // System.out.println(thresholds + "\n");
     if (thresholds.size() == 0) {
       for (int i = 0; i < cont.length; i++) {
         pots.set(0, pots.get(0) + cont[i]);
       }
     } else {
       for (int i = 0; i < thresholds.size(); i++) {
+        // System.out.println(thresholds.get(i));
         for (int k = 0; k < cont.length; k++) {
           try {
             if (cont[k] >= thresholds.get(i)) {
               pots.set(i, pots.get(i) + thresholds.get(i));
+              if (!eligible.get(i).contains(p[k]))
+              eligible.get(i).add(p[k]);
             } else if (cont[k] > 0) {
               pots.set(i, pots.get(i) + cont[k]);
+              if (!eligible.get(i).contains(p[k]))
+              eligible.get(i).add(p[k]);
             }
-            if (!eligible.get(i).contains(p[k])) eligible.get(i).add(p[k]);
+            
           } catch (IndexOutOfBoundsException e) {
             if (cont[k] >= thresholds.get(i)) {
               pots.add(thresholds.get(i));
@@ -94,13 +107,22 @@ public class PokerPot {
           else if (cont[k] > 0)
             cont[k] = 0;
         }
+        // System.out.println(Arrays.toString(cont));
       }
-      pots.add(0);
-      eligible.add(new ArrayList<>());
+      int orgLen = pots.size();
       for (int i = 0; i < cont.length; i++) {
         if (cont[i] > 0) {
-          pots.set(pots.size() - 1, pots.get(pots.size() - 1) + cont[i]);
-          eligible.get(eligible.size() - 1).add(p[i]);
+          if (pots.size() == orgLen) { 
+            pots.add(0);
+            eligible.add(new ArrayList<>());
+          }
+          try {
+            pots.set(pots.size() - 1, pots.get(pots.size() - 1) + cont[i]);
+            eligible.get(eligible.size() - 1).add(p[i]);
+          } catch (IndexOutOfBoundsException e) {
+            pots.set(pots.size() - 1, pots.get(pots.size() - 1) + cont[i]);
+            eligible.get(eligible.size() - 1).add(p[i]);
+          }
         }
       }
     }
@@ -126,6 +148,7 @@ public class PokerPot {
   }
 
   public void assignWinner(PokerDeck d, int complete) {
+    System.out.println("*** SHOWDOWN ***\n");
     updatePot();
     if (complete == 1) {
       System.out.println("Board: " + d.getBoard()[0].getValue() + " - " +
