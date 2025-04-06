@@ -185,7 +185,7 @@ public class PokerPot {
                 currBest.clear();
                 currBest.add(i);
                 bestHand = currHand;
-              } else if (d.compareHands(bestHand, currHand) == 0)
+              } else if (d.compareHands(bestHand, currHand) == 0 && !currBest.contains(i))
                 currBest.add(i);
             } else {
               currBest.add(i);
