@@ -139,7 +139,7 @@ class PokerGame {
           : ((j == 1) ? "*** THE TURN (4th Street) ***\n" : "*** THE RIVER (5th Street) ***\n")));
       do {
         if (players[i].inHand()) {
-          System.out.println(players[i].getName().toUpperCase() + "'s turn!");
+          System.out.println(((players[i] instanceof PokerBot) ? players[i].getName().toUpperCase() + "'s" : "YOUR") + " turn!");
           System.out.println(pot.toString());
           System.out.println("Board: " + b[0].getValue() + "  - " + b[1].getValue() + "  - " + b[2].getValue()
               + ((j > 0) ? ("  - " + b[3].getValue()) : "") + ((j == 2) ? "  - " + b[4].getValue() : ""));
