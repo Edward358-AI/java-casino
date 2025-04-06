@@ -3,4 +3,6 @@ public class PlayerStat {
   private int totalBet;
   private int totalWin;
   private int totalLoss;
+  private int biggestGain;
+  
 }
