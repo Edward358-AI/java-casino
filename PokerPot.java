@@ -17,14 +17,6 @@ public class PokerPot {
     maxBet = 0;
   }
 
-  public void checkFolds() {
-    for (ArrayList<PokerPlayer> e : eligible) {
-      for (int k = 0; k < e.size(); k++)
-        if (!e.get(k).inHand())
-          e.remove(k);
-    }
-  }
-
   // testing purposes
   public void setCont(int[] cont) {
     contributions = cont;
@@ -57,8 +49,9 @@ public class PokerPot {
     eligible.clear();
     pots.add(0);
     eligible.add(new ArrayList<>());
-    for (int i = 0; i < p.length; i++) if (contributions[i] > 0) eligible.get(0).add(p[i]);
-    checkFolds();
+    for (int i = 0; i < p.length; i++)
+      if (contributions[i] > 0 && p[i].inHand())
+        eligible.get(0).add(p[i]);
     int[] cont = contributions.clone();
     for (int c : contributions)
       if (c > maxBet)
@@ -70,7 +63,8 @@ public class PokerPot {
       }
     }
     Collections.sort(thresholds);
-    for (int c = thresholds.size() - 1; c > 0; c--) thresholds.set(c, thresholds.get(c) - thresholds.get(c-1));
+    for (int c = thresholds.size() - 1; c > 0; c--)
+      thresholds.set(c, thresholds.get(c) - thresholds.get(c - 1));
     // System.out.println(thresholds + "\n");
     if (thresholds.size() == 0) {
       for (int i = 0; i < cont.length; i++) {
@@ -83,23 +77,25 @@ public class PokerPot {
           try {
             if (cont[k] >= thresholds.get(i)) {
               pots.set(i, pots.get(i) + thresholds.get(i));
-              if (!eligible.get(i).contains(p[k]))
-              eligible.get(i).add(p[k]);
+              if (!eligible.get(i).contains(p[k]) && p[k].inHand())
+                eligible.get(i).add(p[k]);
             } else if (cont[k] > 0) {
               pots.set(i, pots.get(i) + cont[k]);
-              if (!eligible.get(i).contains(p[k]))
-              eligible.get(i).add(p[k]);
+              if (!eligible.get(i).contains(p[k]) && p[k].inHand())
+                eligible.get(i).add(p[k]);
             }
-            
+
           } catch (IndexOutOfBoundsException e) {
             if (cont[k] >= thresholds.get(i)) {
               pots.add(thresholds.get(i));
               eligible.add(new ArrayList<>());
-              eligible.get(i).add(p[k]);
+              if (p[k].inHand())
+                eligible.get(i).add(p[k]);
             } else if (cont[k] > 0) {
               pots.add(cont[k]);
               eligible.add(new ArrayList<>());
-              eligible.get(i).add(p[k]);
+              if (p[k].inHand())
+                eligible.get(i).add(p[k]);
             }
           }
           if (cont[k] >= thresholds.get(i))
@@ -112,21 +108,22 @@ public class PokerPot {
       int orgLen = pots.size();
       for (int i = 0; i < cont.length; i++) {
         if (cont[i] > 0) {
-          if (pots.size() == orgLen) { 
+          if (pots.size() == orgLen) {
             pots.add(0);
             eligible.add(new ArrayList<>());
           }
           try {
             pots.set(pots.size() - 1, pots.get(pots.size() - 1) + cont[i]);
-            eligible.get(eligible.size() - 1).add(p[i]);
+            if (p[i].inHand())
+              eligible.get(eligible.size() - 1).add(p[i]);
           } catch (IndexOutOfBoundsException e) {
             pots.set(pots.size() - 1, pots.get(pots.size() - 1) + cont[i]);
-            eligible.get(eligible.size() - 1).add(p[i]);
+            if (p[i].inHand())
+              eligible.get(eligible.size() - 1).add(p[i]);
           }
         }
       }
     }
-    checkFolds();
   }
 
   public String toString() {
@@ -148,13 +145,14 @@ public class PokerPot {
   }
 
   public void assignWinner(PokerDeck d, int complete) {
-    System.out.println("*** SHOWDOWN ***\n");
+    System.out.println("*** SHOWDOWN ***");
     updatePot();
     if (complete == 1) {
-      System.out.println("Board: " + d.getBoard()[0].getValue() + " - " +
+      System.out.println("\nBoard: " + d.getBoard()[0].getValue() + " - " +
           d.getBoard()[1].getValue() + " - "
           + d.getBoard()[2].getValue() + " - " + d.getBoard()[3].getValue() + " - " +
           d.getBoard()[4].getValue());
+      System.out.println(toString() + "\n");
       ArrayList<Integer> currBest = new ArrayList<Integer>();
       Card[] bestHand = new Card[5];
       try {
@@ -166,19 +164,22 @@ public class PokerPot {
         for (int i = 0; i < eligible.get(k).size(); i++) {
           if (eligible.get(k).get(i).inHand()) {
             Card[] currHand = d.getBestHand(eligible.get(k).get(i).getHand());
-            if (eligible.get(k).get(i) instanceof PokerBot)
-              System.out.println(eligible.get(k).get(i).getName() + "'s hand: " +
-                  eligible.get(k).get(i).getHand()[0].getValue() + " "
-                  + eligible.get(k).get(i).getHand()[1].getValue());
-            else
-              System.out.println("YOUR hand: " + eligible.get(k).get(i).getHand()[0].getValue()
-                  + " "
-                  + eligible.get(k).get(i).getHand()[1].getValue());
-            try {
-              Thread.sleep(1000);
-            } catch (InterruptedException e) {
-              e.printStackTrace();
+            if (k == 0) {
+              if (eligible.get(k).get(i) instanceof PokerBot)
+                System.out.println(eligible.get(k).get(i).getName() + "'s hand: " +
+                    eligible.get(k).get(i).getHand()[0].getValue() + " "
+                    + eligible.get(k).get(i).getHand()[1].getValue());
+              else
+                System.out.println("YOUR hand: " + eligible.get(k).get(i).getHand()[0].getValue()
+                    + " "
+                    + eligible.get(k).get(i).getHand()[1].getValue());
+              try {
+                Thread.sleep(1000);
+              } catch (InterruptedException e) {
+                e.printStackTrace();
+              }
             }
+
             if (currBest.size() > 0) {
               if (d.compareHands(bestHand, currHand) == 2) {
                 currBest.clear();
@@ -194,16 +195,26 @@ public class PokerPot {
         }
         Deck.sort(bestHand);
         System.out.println();
-        for (int i = 0; i < currBest.size(); i++) {
-          eligible.get(k).get(currBest.get(i)).addChips((int) (pots.get(k) / currBest.size()));
-          System.out
-              .print(eligible.get(k).get(currBest.get(i)).getName() + " won ✨" + (int) (pots.get(k) / currBest.size())
-                  + " from the " + ((k == 0) ? "main" : "side") + " pot! Their hand was ");
-          Card[] theHand = d.getBestHand(eligible.get(k).get(currBest.get(i)).getHand());
-          Deck.sort(theHand);
-          for (int f = 0; f < 5; f++) {
-            System.out.print(theHand[f].getValue() + ((f == 4) ? "\n" : "  - "));
+        if (currBest.size() > 1) {
+          for (int i = 0; i < currBest.size(); i++) {
+            eligible.get(k).get(currBest.get(i)).addChips((int) (pots.get(k) / currBest.size()));
+            System.out
+                .print(eligible.get(k).get(currBest.get(i)).getName() + " won ✨" + (int) (pots.get(k) / currBest.size())
+                    + " from the " + ((k == 0) ? "main" : "side") + " pot! Their hand was ");
+            Card[] theHand = d.getBestHand(eligible.get(k).get(currBest.get(i)).getHand());
+            Deck.sort(theHand);
+            for (int f = 0; f < 5; f++) {
+              System.out.print(theHand[f].getValue() + ((f == 4) ? "\n\n" : "  - "));
+            }
           }
+        } else {
+          eligible.get(k).get(currBest.get(0)).addChips(pots.get(k));
+          System.out.print(eligible.get(k).get(currBest.get(0)).getName() + " won ✨" + pots.get(k) + " from the "
+              + ((k == 0) ? "main" : "side") + " pot! Their hand was ");
+          Card[] theHand = d.getBestHand(eligible.get(k).get(currBest.get(0)).getHand());
+          Deck.sort(theHand);
+          for (int f = 0; f < 5; f++)
+            System.out.print(theHand[f].getValue() + ((f == 4) ? "\n\n" : "  - "));
         }
       }
 
@@ -211,8 +222,8 @@ public class PokerPot {
       for (int k = 0; k < pots.size(); k++) {
         for (int i = 0; i < eligible.get(k).size(); i++)
           if (eligible.get(k).get(i).inHand()) {
-            eligible.get(k).get(i).addChips(eligible.get(k).get(i).getChips());
-            System.out.println(eligible.get(k).get(i).getName() + " won ✨" + eligible.get(k).get(i).getChips()
+            eligible.get(k).get(i).addChips(pots.get(k));
+            System.out.println(eligible.get(k).get(i).getName() + " won ✨" + pots.get(k)
                 + " this hand! Everyone else folded.");
           }
       }

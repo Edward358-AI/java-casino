@@ -29,14 +29,15 @@ public class PokerBot extends PokerPlayer {
       action[0] = 4;
       action[1] = super.getChips();
     } else if (bet < super.getChips()) {
-      if (rand >= 0 && rand < 0.75) {
+      if (rand >= 0 && rand < 0.50) {
         action[0] = 1;
         if (bet > 0) {
           action[1] = (bet >= super.getChips()) ? super.getChips() : bet - prevBet;
         } else
           action[1] = (bet == 0) ? 0 : bet - prevBet;
-      } else if (rand >= 0.75 && rand < 0.85) {
-        if (bet + prevBet + super.getChips() / 10 < super.getChips()) {
+      } else if (rand >= 0.50 && rand < 0.85) {
+        if ((bet + super.getChips() / 10) < super.getChips()) {
+          // System.out.println(bet+super.getChips()/10);
           int max;
           int min;
           if (round.equals("preflop")) {
