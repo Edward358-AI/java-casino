@@ -102,7 +102,7 @@ class PokerGame {
           // System.out.println(Arrays.toString(currAction));
           System.out.println();
           try {
-            Thread.sleep(1500);
+            Thread.sleep(1000);
           } catch (InterruptedException e) {
             e.printStackTrace();
           }
@@ -169,7 +169,7 @@ class PokerGame {
           // System.out.println(Arrays.toString(currAction));
           System.out.println();
           try {
-            Thread.sleep(1500);
+            Thread.sleep(1000);
           } catch (InterruptedException e) {
             e.printStackTrace();
           }
