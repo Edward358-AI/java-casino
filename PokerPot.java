@@ -153,14 +153,14 @@ public class PokerPot {
           + d.getBoard()[2].getValue() + " - " + d.getBoard()[3].getValue() + " - " +
           d.getBoard()[4].getValue());
       System.out.println(toString() + "\n");
-      ArrayList<Integer> currBest = new ArrayList<Integer>();
-      Card[] bestHand = new Card[5];
       try {
         Thread.sleep(1000);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
       for (int k = 0; k < pots.size(); k++) {
+        ArrayList<Integer> currBest = new ArrayList<Integer>();
+        Card[] bestHand = new Card[5];
         for (int i = 0; i < eligible.get(k).size(); i++) {
           if (eligible.get(k).get(i).inHand()) {
             Card[] currHand = d.getBestHand(eligible.get(k).get(i).getHand());
