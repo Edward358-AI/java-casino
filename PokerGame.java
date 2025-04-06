@@ -272,11 +272,11 @@ class PokerGame {
         if (players[i].status() == 2)
           System.out.println(players[i].getName() + " in big blind "
               + ((currAction[0] == 4) ? "goes all in for" : ((currBet == 0) ? "bets" : "raises to"))
-              + " ✨" + (currConts[i] + currAction[1]) + ".");
+              + " ✨" + (currAction[1]) + ".");
         else
           System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
               + ((currAction[0] == 4) ? "goes all in for" : ((currBet == 0) ? "bets" : "raises to")) + " ✨"
-              + (currConts[i] + currAction[1]) + ".");
+              + (currAction[1]) + ".");
 
         pot.addPlayerContribution(i, currAction[1]);
         currConts[i] += currAction[1];
