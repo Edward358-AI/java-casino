@@ -15,34 +15,28 @@ public class BJPlayer extends Player {
     hand.clear();
   }
 
-  public int[] action(int prevBet, int c) {
-    int[] out = new int[2];
+  public int[] action(int prevBet) { // if hand.size() == 0 prompt for bet
+    // else ask him for regular action and display his hand
+    int[] out = new int[2];  // {a, b} 
+    /*
+     * a: 0 - bet, 1 - hit, 2 - stand, 3 - surrender 
+     * b: bet (if applicable), otherwise js 0
+     */
     // 0 betting
     // 1 dealing
-    // 2 player's turn // can only hit or stand, no double down or surrender so bet is not made into a method
+    // 2 player's turn // can only hit, stand, or surrender (lose half bet continue to next round), no double down so bet is not made into a method
     // 3 dealer's turn
     // external method to check if win
-    switch(c) {
-      case 0:
-        out[0] = this.getValidInt("Place your bet: ", 0);
-        //System.out.println(out[0]);
-        return out;
+    if (hand.size()==0) {
+      out[0] = 0;
+      out[1] = BJPlayer.getValidInt("Place your bet: ", 0, getChips());
+      //System.out.println(out[0]);
+      return out;
+    } else {
+      System.out.println("What will you do?");
+      out[0] = BJPlayer.getValidInt("[1] Hit [2] Stand [3] Surrender(-50% bet)", 1, 3);
+      return out;
     }
     //System.out.println("Your hand: " + hand[0] + " " + hand[1]);
-    return null;
-  }
-  public int getValidInt(String message, int min) { // override (maybe overload?); dont need bounds sometimes
-    int x;
-    while (true) {
-      System.out.println(message);
-      try {
-        String z = s.nextLine().trim();
-        x = Integer.parseInt(z);
-        if (x>=min) break;
-      } catch (Exception e) {
-        continue;
-      }
-    }
-    return x;
   }
 }

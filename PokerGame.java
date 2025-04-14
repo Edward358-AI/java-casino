@@ -33,8 +33,7 @@ class PokerGame {
   }
 
   public void init() { // start the main loop
-    System.out
-        .println("\n\nWelcome to the Texas Hold'em table!\nHere are the players in today and their current buy-ins!");
+    System.out.println("\n\nWelcome to the Texas Hold'em table!\nHere are the players in today and their current buy-ins!");
     for (PokerPlayer p : players) {
       System.out.println(p.toString());
     }

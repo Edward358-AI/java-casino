@@ -3,22 +3,30 @@ import java.util.*;
 public class Blackjack {
   private Deck deck; // deal, reset
   private ArrayList<BJPlayer> players = new ArrayList<BJPlayer>();
+  private int prevBet;
 
   public Blackjack(BJPlayer p) {
     deck = new Deck();
     players.add(p);
     players.add(new BJBot());
+    prevBet = 0;
   }
 
   private void main() {
+    System.out.println("Welcome to the Blackjack table!");
+    System.out.println("You will be playing against the dealer.");
+    // maybe use fancy clear screen util
     // run action() function on each player before dealing cards to collect $$$
     // action to print info // or game print board-equivalent
-    players.get(0).action(0, 0); // bet
+    players.get(0).action(prevBet); // bet // why prevBet here
     for(BJPlayer player:players) { // give all players two cards
       player.add(deck.deal()[0]);
       player.add(deck.deal()[0]);
     }
-    
+    for(BJPlayer player:players) { // give all players two cards
+      player.add(deck.deal()[0]);
+      player.add(deck.deal()[0]);
+    }
   }
 
   public void initialize() {

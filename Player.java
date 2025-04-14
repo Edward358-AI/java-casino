@@ -6,8 +6,10 @@ public class Player {
   private boolean in;
   private static Scanner sc = new Scanner(System.in);
   public Player(String name) {
-    if (name.length() > 0) this.name = name.substring(0,1).toUpperCase() + name.substring(1);
-    else this.name = Names.getName();
+    if (name.length() > 0)
+      this.name = name.substring(0,1).toUpperCase() + name.substring(1);
+    else
+      this.name = Names.getName();
     chips = 1000;
     in = true;
   }
