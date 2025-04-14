@@ -47,6 +47,7 @@ public class Player {
       System.out.println(message);
       try {
         String z = sc.nextLine().trim();
+        if (z.toLowerCase().trim().equals("q")) System.exit(0);
         x = Integer.parseInt(z);
         if (x >= min && x <= max) break;
       } catch (Exception e) {
@@ -54,6 +55,25 @@ public class Player {
       }
     }
     return x;
+  }
+  public static String getValidStr(String message, int min, int max) {
+    int x;
+    String r;
+    while (true) {
+      System.out.println(message);
+      try {
+        String z = sc.nextLine().trim();
+        if (z.toLowerCase().trim().equals("q")) System.exit(0);
+        x = z.length();
+        if (x >= min && x <= max) {
+          r = z;
+          break;
+        }
+      } catch (Exception e) {
+        continue;
+      }
+    }
+    return r;
   }
   public String toString() {
     return name + ": ✨" + chips;

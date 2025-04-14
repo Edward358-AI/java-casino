@@ -8,16 +8,10 @@ public class Casino { // will operate blackjack/poker games
   public void start() {
     Utils.clearScreen();
     System.out.println(
-        "Welcome to ♠️ Aventurine's Adventures♠️ !\nA lifetime of opportunities awaits! We offer the highest quality blackjack and Texas Hold'em poker tables only.\n\nNOTE: Any and all currency used is completely fictional. We highly discourage underage gambling.\n\nWhat game would you like to play?");
+        "Welcome to ♠️ Aventurine's Adventures♠️ !\nA lifetime of opportunities awaits! We offer the highest quality blackjack and Texas Hold'em poker tables only.\n\nNOTE: Any and all currency used is completely fictional. We highly discourage underage gambling.\n\nWhat game would you like to play? Remember, type \"q\" anytime to quit the program!");
     int game = Player.getValidInt("[1] Poker [2] Blackjack", 1, 2);
     int buyIn = Player.getValidInt("What is your buy-in (in primogems ✨, 1000 recommended): [500-1000]", 500, 1000);
-    System.out.println("What is your name? (3-20 char limit)");
-    String name = sc.nextLine();
-    if (name.length() < 3 || name.length() > 20) {
-      System.out.println("Your name was not within the bounds, a random name will be chosen for you!");
-      name = Names.getName();
-      System.out.println("Your name will be " + name.toUpperCase() + " for this game!");
-    }
+    String name = Player.getValidStr("What is your name? (3-20 char limit)", 3, 20);
     if (game == 1) {
       PokerPlayer mainPlayer = new PokerPlayer(name);
       mainPlayer.removeChips(mainPlayer.getChips());

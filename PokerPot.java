@@ -147,7 +147,7 @@ public class PokerPot {
   public void assignWinner(PokerDeck d, int complete) {
     System.out.println("*** SHOWDOWN ***");
     updatePot();
-    if (complete == 1) {
+    if (complete == 1) { // only runs this if the game has been through a full round
       System.out.println("\nBoard: " + d.getBoard()[0].getValue() + " - " +
           d.getBoard()[1].getValue() + " - "
           + d.getBoard()[2].getValue() + " - " + d.getBoard()[3].getValue() + " - " +
@@ -218,7 +218,7 @@ public class PokerPot {
         }
       }
 
-    } else {
+    } else { // executes if the hand was abruptly stopped, i.e. everyone folded except one person
       for (int k = 0; k < pots.size(); k++) {
         for (int i = 0; i < eligible.get(k).size(); i++)
           if (eligible.get(k).get(i).inHand()) {

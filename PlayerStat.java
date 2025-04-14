@@ -4,5 +4,5 @@ public class PlayerStat {
   private int totalWin;
   private int totalLoss;
   private int biggestGain;
-  
+  private int allInTimes;
 }
