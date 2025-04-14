@@ -28,7 +28,7 @@ public class Deck { // deck of Cards
     Collections.shuffle(deck);
   }
 
-  public Card[] getDeck() { // returns array of the deck
+  public Card[] getCards() { // returns array of the deck
     return deck.toArray(new Card[deck.size()]);
   }
 

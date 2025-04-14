@@ -159,8 +159,7 @@ class PokerGame {
 
             handleAction(i);
           } else if (!(players[i] instanceof PokerBot)) {
-            System.out
-                .println("Your hand: " + players[i].getHand()[0].getValue() + " " + players[i].getHand()[1].getValue());
+            System.out.println("Your hand: " + players[i].getHand()[0].getValue() + " " + players[i].getHand()[1].getValue());
           }
           // System.out.println(Arrays.toString(players));
           // System.out.println(Arrays.toString(pot.getPlayers()));
@@ -190,7 +189,8 @@ class PokerGame {
       System.out.println("Press Enter to continue:");
       sc.nextLine();
       Utils.clearScreen();
-      if (stillIn() < 2) break;
+      if (stillIn() < 2)
+        break;
     }
     if (stillIn() < 2)
       showdown(0);
@@ -223,9 +223,7 @@ class PokerGame {
       else if (players[i] instanceof PokerBot) {
         String ogName = players[i].getName();
         players[i] = new PokerBot();
-        System.out
-            .println(
-                ogName + " has run out of primogems ✨, they has been replaced by newcomer " + players[i].getName());
+        System.out.println(ogName + " has run out of primogems ✨, they has been replaced by newcomer " + players[i].getName());
       } else
         gameOver = true;
     }

@@ -13,4 +13,9 @@ public class BJBot extends BJPlayer {
   public void randomName () {
     super.setName(names[(int) (Math.random() * names.length)]);
   }
+  public int[] action(int prevBet) {
+    int[] out = new int[2];
+    out[0]+=Math.random()*2+1;
+    return out;
+  }
 }

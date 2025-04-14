@@ -13,6 +13,7 @@ public class Blackjack {
   }
 
   private void main() {
+    System.out.println();
     System.out.println("Welcome to the Blackjack table!");
     System.out.println("You will be playing against the dealer.");
     // maybe use fancy clear screen util
@@ -23,9 +24,16 @@ public class Blackjack {
       player.add(deck.deal()[0]);
       player.add(deck.deal()[0]);
     }
-    for(BJPlayer player:players) { // give all players two cards
-      player.add(deck.deal()[0]);
-      player.add(deck.deal()[0]);
+    System.out.println(); // start to display cards each person has
+    for(BJPlayer player:players) {
+      System.out.println(player.getName());
+      for(Card card:player.getHand()) {
+        System.out.print(card.getValue()+" ");
+      }
+      System.out.println("\n");
+    }
+    for(BJPlayer player:players) { // get action for each player
+      player.action(prevBet);
     }
   }
 
