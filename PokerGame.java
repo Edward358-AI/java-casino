@@ -92,8 +92,7 @@ class PokerGame {
               currAction = players[i].action("preflop", currConts[i], currBet, blinds);
             handleAction(i);
           } else if (!(players[i] instanceof PokerBot)) {
-            System.out
-                .println("Your hand: " + players[i].getHand()[0].getValue() + " " + players[i].getHand()[1].getValue());
+            System.out.println("Your hand: " + players[i].getHand()[0].getValue() + " " + players[i].getHand()[1].getValue());
           }
           // System.out.println(Arrays.toString(players));
           // System.out.println(Arrays.toString(pot.getPlayers()));

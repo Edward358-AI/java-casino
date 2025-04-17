@@ -1,18 +1,15 @@
 import java.util.*;
 
 public class BJBot extends BJPlayer {
-  private String[] names = {"Bob", "Rob", "Alice", "Aaron", "Sam", "Eddie", "Rachel", "Mike", "Charlie", "Ellie", "Colin", "Kevin", "Victor", "Robin", "Jean", "Katheryne", "Dan", "Mark", "Richard", "Dana", "Elena", "Joe", "Juan", "Tony", "Ella", "Sammy", "Edward", "Ethan", "Jonathan", "Jason", "Evelyn", "Josie", "Sophia", "Bryan", "Allen", "Alan", "Kim", "Chloe", "Claire", "Jerry", "Aventurine"};
+  private static String[] names = {"Bob", "Rob", "Alice", "Aaron", "Sam", "Eddie", "Rachel", "Mike", "Charlie", "Ellie", "Colin", "Kevin", "Victor", "Robin", "Jean", "Katheryne", "Dan", "Mark", "Richard", "Dana", "Elena", "Joe", "Juan", "Tony", "Ella", "Sammy", "Edward", "Ethan", "Jonathan", "Jason", "Evelyn", "Josie", "Sophia", "Bryan", "Allen", "Alan", "Kim", "Chloe", "Claire", "Jerry", "Aventurine"};
   private boolean opMode = false;
   public BJBot() { // >=16 hit >=17 stand
-    super("Dealer");
-    randomName();
+    super(names[(int) (Math.random() * names.length)]);
     if (super.getName().equals("Aventurine")) { // see next card?
       opMode = true;
     }
   }
-  public void randomName () {
-    super.setName(names[(int) (Math.random() * names.length)]);
-  }
+
   public int[] action(int prevBet) {
     int[] out = new int[2];
     out[0]+=Math.random()*2+1;

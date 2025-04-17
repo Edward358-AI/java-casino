@@ -13,6 +13,7 @@ public class Blackjack {
   }
 
   private void main() {
+    int[] action = new int[2];
     System.out.println();
     System.out.println("Welcome to the Blackjack table!");
     System.out.println("You will be playing against the dealer.");
@@ -28,13 +29,19 @@ public class Blackjack {
     for(BJPlayer player:players) {
       System.out.println(player.getName());
       for(Card card:player.getHand()) {
-        System.out.print(card.getValue()+" ");
+        System.out.print(card.getValue()+"  ");
       }
       System.out.println("\n");
     }
-    for(BJPlayer player:players) { // get action for each player
-      player.action(prevBet);
+    Card[] arr = players.get(0).getHand().toArray(new Card[arr.size()]);
+    if(getSum(arr)==21) {
+      System.out.println("You hit a blackjack!");
+      System.out.println("You hit a blackjack!");
     }
+    for(BJPlayer player:players) { // get action for each player
+      action = player.action(prevBet);
+    }
+    //if()
   }
 
   public void initialize() {
