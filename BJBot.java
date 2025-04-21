@@ -15,4 +15,13 @@ public class BJBot extends BJPlayer {
     out[0]+=Math.random()*2+1;
     return out;
   }
+
+  public void dispHand() {
+    System.out.println(); // start to display cards each person has
+    System.out.println(getName());
+    for (Card card : getHand()) {
+      System.out.print(card.getValue() + "  ");
+    }
+    System.out.println("\n");
+  }
 }

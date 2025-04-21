@@ -27,15 +27,10 @@ public class Blackjack {
     }
     System.out.println(); // start to display cards each person has
     for(BJPlayer player:players) {
-      System.out.println(player.getName());
-      for(Card card:player.getHand()) {
-        System.out.print(card.getValue()+"  ");
-      }
-      System.out.println("\n");
+      player.dispHand();
     }
-    Card[] arr = players.get(0).getHand().toArray(new Card[arr.size()]);
+    Card[] arr = players.get(0).getHand().toArray(new Card[players.get(0).getHand().size()]);
     if(getSum(arr)==21) {
-      System.out.println("You hit a blackjack!");
       System.out.println("You hit a blackjack!");
     }
     for(BJPlayer player:players) { // get action for each player
