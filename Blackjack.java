@@ -27,7 +27,7 @@ public class Blackjack {
     }
     System.out.println(); // start to display cards each person has
     for(BJPlayer player:players) {
-      player.dispHand(false);
+      player.dispHand(true);
     }
     Card[] arr = players.get(0).getHand().toArray(new Card[players.get(0).getHand().size()]);
     if(getSum(arr)==21) {
