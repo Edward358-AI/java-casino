@@ -16,11 +16,15 @@ public class BJBot extends BJPlayer {
     return out;
   }
 
-  public void dispHand() {
+  public void dispHand(boolean isFirst) {
     System.out.println(); // start to display cards each person has
     System.out.println(getName());
-    for (Card card : getHand()) {
-      System.out.print(card.getValue() + "  ");
+    if (isFirst) {
+      System.out.print(getHand().get(0).getValue() + "  ");
+    } else {
+      for(Card card : getHand()) {
+        System.out.print(card.getValue() + "  ");
+      }
     }
     System.out.println("\n");
   }

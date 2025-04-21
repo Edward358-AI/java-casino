@@ -45,7 +45,7 @@ public class BJPlayer extends Player {
     // System.out.println("Your hand: " + hand[0] + " " + hand[1]);
   }
 
-  public void dispHand() {
+  public void dispHand(boolean isFirst) {
     System.out.println(); // start to display cards each person has
     System.out.println(getName());
     for (Card card : hand) {
