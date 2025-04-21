@@ -25,7 +25,6 @@ public class Blackjack {
       player.add(deck.deal()[0]);
       player.add(deck.deal()[0]);
     }
-    System.out.println(); // start to display cards each person has
     for(BJPlayer player:players) {
       player.dispHand(true);
     }
