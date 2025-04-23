@@ -20,19 +20,20 @@ public class Blackjack {
     // maybe use fancy clear screen util
     // run action() function on each player before dealing cards to collect $$$
     // action to print info // or game print board-equivalent
-    players.get(0).action(prevBet); // bet // why prevBet here
+    action = players.get(0).action(prevBet); // get bet
+    prevBet = action[1];
     for(BJPlayer player:players) { // give all players two cards
       player.add(deck.deal()[0]);
       player.add(deck.deal()[0]);
     }
-    for(BJPlayer player:players) {
-      player.dispHand(true);
+    for(int i = players.size()-1;i>=0;i--) {
+      players.get(i).dispHand(true);
     }
     
     int playerBJ = -1;
     for(int i = 0;i<players.size();i++) {
       BJPlayer player = players.get(i);
-      Card[] arr = player.getHand().toArray(new Card[player.getHand().size()]);
+      Card[] arr = player.getHand().toArray(new Card[2]);
       if (getSum(arr)==21) {
         playerBJ += (i+1);
       }
@@ -45,10 +46,24 @@ public class Blackjack {
         System.out.println(players.get(playerBJ).getName() + " hit a blackjack!");
       }
     }
-    for(BJPlayer player:players) { // get action for each player
-      action = player.action(prevBet);
+    for(int i = 0;i<players.size();i++) { // get action for each player
+      BJPlayer player = players.get(i);
+      if(i==0) {
+        Card[] arr = player.getHand().toArray(new Card[player.getHand().size()]);
+        int gS = getSum(arr);
+        player.action(gS);
+      } else {
+        action = player.action(prevBet);
+      }
+      if(action[0]==1) {
+        player.add(deck.deal()[0]);
+      } else if(action[0]==3) {
+        player.removeChips(prevBet/2);
+      }
     }
-    //if()
+    for(int i = players.size()-1;i>=0;i--) { // after calculating win
+      players.get(i).dispHand(true); // TODO: fix not updating
+    }
   }
 
   public void initialize() {
