@@ -144,7 +144,8 @@ public class PokerPot {
     return result;
   }
 
-  public void assignWinner(PokerDeck d, int complete) {
+  public int[] assignWinner(PokerDeck d, int complete) {
+    int[] stats = new int[2]; // 0 is loss, 1 is win for the player
     System.out.println("*** SHOWDOWN ***");
     updatePot();
     if (complete == 1) { // only runs this if the game has been through a full round
@@ -206,27 +207,51 @@ public class PokerPot {
             for (int f = 0; f < 5; f++) {
               System.out.print(theHand[f].getValue() + ((f == 4) ? "\n\n" : "  - "));
             }
+            if (!(eligible.get(k).get(currBest.get(i)) instanceof PokerBot)) {
+              stats[0] = 1;
+              stats[1] += pots.get(k) / currBest.size();
+            }
           }
         } else {
           eligible.get(k).get(currBest.get(0)).addChips(pots.get(k));
+          try {
+            Thread.sleep(1000);
+          } catch (InterruptedException e) {
+            e.printStackTrace();
+          }
           System.out.print(eligible.get(k).get(currBest.get(0)).getName() + " won ✨" + pots.get(k) + " from the "
               + ((k == 0) ? "main" : "side") + " pot! Their hand was ");
           Card[] theHand = d.getBestHand(eligible.get(k).get(currBest.get(0)).getHand());
           Deck.sort(theHand);
           for (int f = 0; f < 5; f++)
             System.out.print(theHand[f].getValue() + ((f == 4) ? "\n\n" : "  - "));
+          if (!(eligible.get(k).get(currBest.get(0)) instanceof PokerBot)) {
+            stats[0] = 1;
+            stats[1] += pots.get(k);
+          }
         }
       }
 
-    } else { // executes if the hand was abruptly stopped, i.e. everyone folded except one person
+    } else { // executes if the hand was abruptly stopped, i.e. everyone folded except one
+             // person
       for (int k = 0; k < pots.size(); k++) {
         for (int i = 0; i < eligible.get(k).size(); i++)
           if (eligible.get(k).get(i).inHand()) {
+            try {
+              Thread.sleep(1000);
+            } catch (InterruptedException e) {
+              e.printStackTrace();
+            }
             eligible.get(k).get(i).addChips(pots.get(k));
             System.out.println(eligible.get(k).get(i).getName() + " won ✨" + pots.get(k)
                 + " this hand! Everyone else folded.");
+            if (!(eligible.get(k).get(i) instanceof PokerBot)) {
+              stats[0] = 1;
+              stats[1] += pots.get(k);
+            }
           }
       }
     }
+    return stats;
   }
 }

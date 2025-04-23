@@ -4,18 +4,18 @@ class PokerGame {
   private PokerDeck p = new PokerDeck();
   private PokerPlayer[] players;
   private int blinds = 20; // current blinds size
-  private PokerPlayer og; // original first player, used for blind increasing
+  private int hands; // original first player, used for blind increasing
   private int lastPlayer; // keeps track of the last player to act
   private int[] currAction; // keeps track of current players action
   private Scanner sc = new Scanner(System.in);
   private PokerPot pot; // a pokerpot object which keeps track of player contributions and the pot
-  private PokerPlayer main;
   private int currBet; // current bet for round
   private int[] currConts; // current contributions this round
+  private PlayerStat mp;
 
   public PokerGame(PokerPlayer[] players) { // initialiaze a poker game
     this.players = players;
-    main = players[0];
+    mp = new PlayerStat();
     for (int i = 1; i < players.length; i++) { // randomizes bot chip amount
       if (Math.random() >= 0.5) {
         players[i].addChips((int) (Math.random() * 150));
@@ -27,8 +27,6 @@ class PokerGame {
     List<PokerPlayer> temp = Arrays.asList(players);
     Collections.shuffle(temp);
     players = temp.toArray(new PokerPlayer[players.length]);
-
-    og = this.players[0];
     pot = new PokerPot(players);
   }
 
@@ -46,11 +44,10 @@ class PokerGame {
   }
 
   private void endGame() {
-    System.out.print("Game Over! ");
-    if (main.getChips() > 0)
-      System.out.println("You ended the game early.");
-    else
-      System.out.println("You ran out of primogems ✨.");
+    System.out.println("Game Over! You ran out of primogems ✨");
+    System.out.println(mp);
+    System.out.println("Press Enter to continue:");
+    sc.nextLine();
   }
 
   private void preflop() { // code to execute preflop
@@ -63,9 +60,11 @@ class PokerGame {
     }
     currAction = new int[2];
 
+    if (!(players[0] instanceof PokerBot)) mp.addBet(blinds / 2);
     pot.addPlayerContribution(0, blinds / 2);
     currConts[0] += blinds / 2;
 
+    if(!(players[1] instanceof PokerBot)) mp.addBet(blinds);
     pot.addPlayerContribution(1, blinds);
     currConts[1] += blinds;
 
@@ -198,12 +197,24 @@ class PokerGame {
   }
 
   private void showdown(int c) { // assign winnner
-    pot.assignWinner(p, c);
+    int[] stats = pot.assignWinner(p, c);
+    if (stats[0] == 1) {
+      mp.addWin(stats[1]);
+      mp.setGain(stats[1]);
+    } else {
+      for (int i = 0; i < players.length; i++) {
+        if (!(players[i] instanceof PokerBot)) {
+          mp.addLoss(pot.getContributions()[i]);
+        }
+      }
+    }
     System.out.println();
     newHand();
   }
 
   private void newHand() { // setup for new hand
+    hands++;
+    mp.hands();
     boolean gameOver = false;
     p.reset();
     players[0].setStatus(0);
@@ -212,9 +223,10 @@ class PokerGame {
     for (int i = players.length - 1; i > 0; i--)
       players[i] = players[i - 1];
     players[0] = first;
-    if (players[0].equals(og)) {
+    if (hands == players.length) {
       blinds *= 2;
       System.out.println("Round finished! Increasing blind sizes...");
+      hands = 0;
     }
     for (int i = 0; i < players.length; i++) {
       if (players[i].getChips() > 0)
@@ -241,6 +253,7 @@ class PokerGame {
   private void handleAction(int i) { // do certain things based on a player's action
     switch (currAction[0]) {
       case 1:
+      if (!(players[i] instanceof PokerBot)) mp.addBet(currAction[1]);
         pot.addPlayerContribution(i, currAction[1]);
         currConts[i] += currAction[1];
         if (players[i].status() == 2) {
@@ -265,6 +278,8 @@ class PokerGame {
           System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "folds.");
         break;
       default:
+        if (!(players[i] instanceof PokerBot) && currAction[0] == 4) mp.allIn();
+        if (!(players[i] instanceof PokerBot)) mp.addBet(currAction[1]);
         if (players[i].status() == 2)
           System.out.println(players[i].getName() + " in big blind "
               + ((currAction[0] == 4) ? "goes all in for" : ((currBet == 0) ? "bets" : "raises to"))
