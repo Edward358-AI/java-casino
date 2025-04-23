@@ -38,7 +38,7 @@ public class Blackjack {
       }
     }
     if(playerBJ>-1) {
-      if(playerBJ>1) {
+      if(playerBJ>players.size()-1) {
         System.out.println("Both you and the dealer got a blackjack; tie");
         // end game here; ask for restart
       } else {
