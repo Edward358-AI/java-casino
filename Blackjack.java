@@ -28,9 +28,22 @@ public class Blackjack {
     for(BJPlayer player:players) {
       player.dispHand(true);
     }
-    Card[] arr = players.get(0).getHand().toArray(new Card[players.get(0).getHand().size()]);
-    if(getSum(arr)==21) {
-      System.out.println("You hit a blackjack!");
+    
+    int playerBJ = -1;
+    for(int i = 0;i<players.size();i++) {
+      BJPlayer player = players.get(i);
+      Card[] arr = player.getHand().toArray(new Card[player.getHand().size()]);
+      if (getSum(arr)==21) {
+        playerBJ += (i+1);
+      }
+    }
+    if(playerBJ>-1) {
+      if(playerBJ>1) {
+        System.out.println("Both you and the dealer got a blackjack; tie");
+        // end game here; ask for restart
+      } else {
+        System.out.println(players.get(playerBJ).getName() + " hit a blackjack!");
+      }
     }
     for(BJPlayer player:players) { // get action for each player
       action = player.action(prevBet);
