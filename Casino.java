@@ -33,6 +33,11 @@ public class Casino { // will operate blackjack/poker games
         m.removeChips(m.getChips());
         m.addChips(buyIn);
         bj = new Blackjack(m);
+        try {
+          Thread.sleep(1000);
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
         bj.initialize();
       }
     }

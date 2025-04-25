@@ -34,7 +34,7 @@ public class BJPlayer extends Player {
     // external method to check if win
     if (hand.size() == 0) {
       out[0] = 0;
-      out[1] = BJPlayer.getValidInt("Place your bet: ", 0, getChips());
+      out[1] = BJPlayer.getValidInt("Current stack: " + getChips() + "✨\nPlace your bet: (50-" + getChips() + "✨)", 50, getChips());
       // System.out.println(out[0]);
       return out;
     } else {
@@ -45,9 +45,9 @@ public class BJPlayer extends Player {
     // System.out.println("Your hand: " + hand[0] + " " + hand[1]);
   }
 
-  public void dispHand(boolean isFirst) {
+  public void dispHand() {
     System.out.println(); // start to display cards each person has
-    System.out.println(getName());
+    System.out.println(getName() + ":");
     for (Card card : hand) {
       System.out.print(card.getValue() + "  ");
     }
