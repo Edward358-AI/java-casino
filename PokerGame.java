@@ -86,7 +86,7 @@ class PokerGame {
           if (players[i].getChips() > 0) {
             if (players[i] instanceof PokerBot) {
               PokerBot temp = (PokerBot) players[i];
-              currAction = temp.action("preflop", currConts[i], currBet, blinds, new Card[5]);
+              currAction = temp.action("preflop", currConts[i], currBet, blinds, null);
             } else
               currAction = players[i].action("preflop", currConts[i], currBet, blinds);
             handleAction(i);
@@ -282,11 +282,11 @@ class PokerGame {
         if (!(players[i] instanceof PokerBot)) mp.addBet(currAction[1]);
         if (players[i].status() == 2)
           System.out.println(players[i].getName() + " in big blind "
-              + ((currAction[0] == 4) ? "goes all in for" : ((currBet == 0) ? "bets" : "raises to"))
+              + ((currAction[0] == 4) ? "goes all in for" : ((currBet == 0) ? "bets" : "raises by"))
               + " ✨" + (currAction[1]) + ".");
         else
           System.out.println(players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
-              + ((currAction[0] == 4) ? "goes all in for" : ((currBet == 0) ? "bets" : "raises to")) + " ✨"
+              + ((currAction[0] == 4) ? "goes all in for" : ((currBet == 0) ? "bets" : "raises by")) + " ✨"
               + (currAction[1]) + ".");
 
         pot.addPlayerContribution(i, currAction[1]);

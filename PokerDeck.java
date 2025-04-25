@@ -136,6 +136,39 @@ class PokerDeck extends Deck { // a deck specifically designed to facilitate a g
     }
     return bestHand;
   }
+  
+  public Card[] getBestHand(Card[] h, Card[] b) { // gets the best possible hand given a players hand and custom board
+    ArrayList<Card> hand = new ArrayList<Card>(Arrays.asList(h));
+    hand.addAll(Arrays.asList(b));
+    int currRank = Integer.MAX_VALUE;
+    ArrayList<ArrayList<Card>> currHand = new ArrayList<ArrayList<Card>>();
+    for (int i = 0; i < hand.size(); i++) {
+      for (int j = i + 1; j < hand.size(); j++) {
+        for (int k = j + 1; k < hand.size(); k++) {
+          for (int l = k + 1; l < hand.size(); l++) {
+            for (int m = l + 1; m < hand.size(); m++) {
+              ArrayList<Card> combo = new ArrayList<Card>();
+              combo.add(hand.get(i));
+              combo.add(hand.get(j));
+              combo.add(hand.get(k));
+              combo.add(hand.get(l));
+              combo.add(hand.get(m));
+              if (getRanking(combo.toArray(new Card[5])) < currRank) {
+                currHand = new ArrayList<ArrayList<Card>>();
+                currHand.add(combo);
+                currRank = getRanking(combo.toArray(new Card[5]));
+              } else if (getRanking(combo.toArray(new Card[5])) == currRank) currHand.add(combo);
+            }
+          }
+        }
+      }
+    }
+    Card[] bestHand = currHand.get(0).toArray(new Card[5]);
+    for (int i = 1; i < currHand.size(); i++) {
+      if (compareHands(bestHand, currHand.get(i).toArray(new Card[5])) == 2) bestHand = currHand.get(i).toArray(new Card[5]);
+    }
+    return bestHand;
+  }
 
   public int compareHands(Card[] h1, Card[] h2) { // compares two poker hands
     // returns 1 if the first one is better, 2 if the second one better, 0 if theyre the are the exact same
