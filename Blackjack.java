@@ -37,22 +37,22 @@ public class Blackjack {
       players.get(i).dispHand();
     }
 
-    int playerBJ = -1;
-    for (int i = 0; i < players.size(); i++) {
-      BJPlayer player = players.get(i);
-      Card[] arr = player.getHand().toArray(new Card[2]);
-      if (getSum(arr) == 21) {
-        playerBJ += (i + 1);
-      }
-    }
-    if (playerBJ > -1) {
-      if (playerBJ > players.size() - 1) {
+    int dealerTemp = getSum(players.get(1).getHand().toArray(new Card[2]));
+    int playerTemp = getSum(players.get(0).getHand().toArray(new Card[2]));
+    if (dealerTemp == 21 || playerTemp == 21) {
+      if (dealerTemp == 21 && playerTemp == 21) {
         System.out.println("Both you and the dealer got a blackjack; tie");
         System.out.println("You are returned your original bet.");
       } else {
-        System.out.println(players.get(playerBJ).getName() + " hit a blackjack!");
-        System.out.println("You won " + (int) (prevBet * 1.5) + "✨!");
-        players.get(0).addChips((int) (prevBet * 1.5));
+        if (dealerTemp == 21) {
+          System.out.println(players.get(1).getName() + " hit a blackjack!");
+          System.out.println("You immediately lost " + prevBet + "✨!");
+          players.get(0).removeChips(prevBet);
+        } else {
+          System.out.println(players.get(0).getName() + " hit a blackjack!");
+          System.out.println("You won " + (int) (prevBet * 1.5) + "✨!");
+          players.get(0).addChips((int) (prevBet * 1.5));
+        }
       }
     } else {
       boolean surrendered = false;
@@ -88,11 +88,11 @@ public class Blackjack {
       if (!surrendered && !busted) {
         do {
           Card[] arr = players.get(1).getHand().toArray(new Card[players.get(1).getHand().size()]);
-            int gS = getSum(arr);
-            action = players.get(1).action(gS);
-            if (action[0] == 1) {
-              players.get(1).add(deck.deal()[0]);
-            }
+          int gS = getSum(arr);
+          action = players.get(1).action(gS);
+          if (action[0] == 1) {
+            players.get(1).add(deck.deal()[0]);
+          }
         } while (action[0] == 1);
         Utils.clearScreen();
         System.out.print("SHOWDOWN:\n");
@@ -101,25 +101,31 @@ public class Blackjack {
         players.get(0).dispHand();
         int dealer = getSum(players.get(1).getHand().toArray(new Card[players.get(1).getHand().size()]));
         int player = getSum(players.get(0).getHand().toArray(new Card[players.get(0).getHand().size()]));
-        if (player > dealer || dealer > 22) {
+        if (player > dealer || dealer > 21) {
           players.get(0).addChips(prevBet);
           System.out.println("You beat the dealer! You won " + prevBet + "✨");
         } else {
           players.get(0).removeChips(prevBet);
-          System.out.println("Dealer " + ((player == dealer) ? "tied" : "won") + "! You lost " + prevBet + "✨");
+          System.out.println(
+              "Dealer " + ((player == dealer) ? "tied, house rules, y" : "won! Y") + "ou lost " + prevBet + "✨");
         }
       }
     }
-    System.out.println("Press Enter to continue:");
-    sc.nextLine();
-    deck.reset();
-    action = new int[2];
-    players.get(0).clear();
-    players.get(1).clear();
-    if (players.get(0).getChips() > 0)
-      main();
-    else
-      System.out.println("Game over! You ran out of primogems.");
+    System.out.println("Continue playing? [y/n]:");
+    String s = sc.nextLine().strip().toLowerCase();
+    if (s.equals("n") || s.equals("no") || s.equals("nah")) {
+    } else {
+      deck.reset();
+      action = new int[2];
+      players.get(0).clear();
+      players.get(1).clear();
+      if (players.get(0).getChips() > 0)
+        main();
+      else
+        System.out.println("Game over! You ran out of primogems.");
+      System.out.println("Press Enter to continue:");
+      sc.nextLine();
+    }
   }
 
   public void initialize() {
