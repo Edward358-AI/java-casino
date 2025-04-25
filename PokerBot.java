@@ -103,7 +103,7 @@ public class PokerBot extends PokerPlayer {
             if (bet < super.getChips() / 2) {
               if (Math.random() < 0.2) {
                 action[0] = 3;
-                action[1] = bet * 2;
+                action[1] = (bet == 0) ? (int) (blind * (Math.random() + 2)): (int) (bet * (Math.random() + 2));
               } else {
                 action[0] = 1;
                 if (bet > 0) {
@@ -238,13 +238,18 @@ public class PokerBot extends PokerPlayer {
             }
           }
         }
+        boolean zeroBet = false;
+        if (bet == 0) {
+          bet = blind;
+          zeroBet = true;
+        }
         switch (subAction) {
           case 0:
             action[0] = 1;
-            if (bet > 0) {
+            if (!zeroBet) {
               action[1] = (bet >= super.getChips()) ? super.getChips() : bet - prevBet;
             } else
-              action[1] = (bet == 0) ? 0 : bet - prevBet;
+              action[1] = (zeroBet) ? 0 : bet - prevBet;
             break;
           case 1:
             action[0] = 3;
@@ -260,7 +265,7 @@ public class PokerBot extends PokerPlayer {
             action[1] = (int) ((Math.random() * (upper - 2 + 0.1) + 4) * bet);
             break;
           case 4:
-            if (bet > 0)
+            if (!zeroBet)
               action[0] = 2;
             else
               action[0] = 1;
