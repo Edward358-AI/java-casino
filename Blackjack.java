@@ -121,10 +121,11 @@ public class Blackjack {
       players.get(1).clear();
       if (players.get(0).getChips() > 0)
         main();
-      else
+      else {
         System.out.println("Game over! You ran out of primogems.");
-      System.out.println("Press Enter to continue:");
-      sc.nextLine();
+        System.out.println("Press Enter to continue:");
+        sc.nextLine();
+      }
     }
   }
 
