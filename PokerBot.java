@@ -32,7 +32,7 @@ public class PokerBot extends PokerPlayer {
   }
 
   public int[] action(String round, int prevBet, int bet, int blind, Card[] board) {
-    if (dumb) {
+    if (dumb) { // idiot bot code, fixed percentages for all situations no matter what
       int[] action = new int[2];
       double rand = Math.random();
       if (opMode && super.getChips() > 0) {
@@ -89,7 +89,7 @@ public class PokerBot extends PokerPlayer {
         }
       }
       return action;
-    } else {
+    } else { // intelligent bot code, varying percentages based on current siutation
       int[] action = new int[2];
       if (round.equals("preflop")) {
         /*
