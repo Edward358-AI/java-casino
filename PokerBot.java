@@ -283,9 +283,10 @@ public class PokerBot extends PokerPlayer {
     }
   }
 
-  public boolean[] draw(Card[] total) { // checks to see if the combined hand and board contains a draw, i.e. 4 cards in
-                                        // a straight or 4 cards in a flush (draw for full house is js two pair or three
-                                        // of a kind)
+  public boolean[] draw(Card[] total) {
+    // checks to see if the combined hand and board contains a draw, i.e. 4 cards in
+    // a straight or 4 cards in a flush (draw for full house is js two pair or three
+    // of a kind)
     Deck.sort(total);
     int straightCount = 0;
     for (int i = 1; i < total.length; i++) {

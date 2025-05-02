@@ -64,15 +64,33 @@ class PokerGame {
     }
     currAction = new int[2];
 
-    if (!(players[0] instanceof PokerBot))
-      mp.addBet(blinds / 2);
-    pot.addPlayerContribution(0, blinds / 2);
-    currConts[0] += blinds / 2;
+    if (blinds / 2 < players[0].getChips()) {
+      if (!(players[0] instanceof PokerBot))
+        mp.addBet(blinds / 2);
+      pot.addPlayerContribution(0, blinds / 2);
+      currConts[0] += blinds / 2;
+    } else {
+      if (!(players[0] instanceof PokerBot)) {
+        mp.addBet(players[0].getChips());
+        mp.allIn();
+      }
+      pot.addPlayerContribution(0, players[0].getChips());
+      currConts[0] += players[0].getChips();
+    }
 
-    if (!(players[1] instanceof PokerBot))
-      mp.addBet(blinds);
-    pot.addPlayerContribution(1, blinds);
-    currConts[1] += blinds;
+    if (blinds < players[1].getChips()) {
+      if (!(players[1] instanceof PokerBot))
+        mp.addBet(blinds);
+      pot.addPlayerContribution(1, blinds);
+      currConts[1] += blinds;
+    } else {
+      if (!(players[1] instanceof PokerBot)) {
+        mp.addBet(players[1].getChips());
+        mp.allIn();
+      }
+      pot.addPlayerContribution(1, players[1].getChips());
+      currConts[1] += players[1].getChips();
+    }
 
     int i = 2;
     System.out.println("*** PREFLOP ***\n");
@@ -217,12 +235,14 @@ class PokerGame {
       players[i] = players[i - 1];
     players[0] = first;
     if (hands == players.length) {
-      if (blinds < 1280) blinds *=2;
+      if (blinds < 1280)
+        blinds *= 2;
       System.out.println("Round finished! Increasing blind sizes...");
       hands = 0;
     }
     for (int i = 0; i < players.length; i++) {
-      if (!(players[i] instanceof PokerBot)) mp.setChips(players[i].getChips());
+      if (!(players[i] instanceof PokerBot))
+        mp.setChips(players[i].getChips());
       if (players[i].getChips() > 0)
         players[i].setInHand(true);
       else if (players[i] instanceof PokerBot) {
