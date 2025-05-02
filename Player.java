@@ -50,7 +50,9 @@ public class Player {
         if (z.toLowerCase().trim().equals("q")) System.exit(0);
         x = Integer.parseInt(z);
         if (x >= min && x <= max) break;
+        else System.out.print("Not within specified bounds! ");
       } catch (Exception e) {
+        System.out.print("Not an integer! ");
         continue;
       }
     }
@@ -68,7 +70,7 @@ public class Player {
         if (x >= min && x <= max) {
           r = z;
           break;
-        }
+        } else System.out.print("Not within specified length! ");
       } catch (Exception e) {
         continue;
       }
