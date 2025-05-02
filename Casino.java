@@ -15,7 +15,7 @@ public class Casino { // will operate blackjack/poker games
     while (chips != 0) {
       Utils.clearScreen();
       System.out.println(
-          "Welcome to ♠️ Aventurine's Adventures♠️ , " + name + " !\nA lifetime of opportunities awaits! We offer the highest quality blackjack and Texas Hold'em poker tables only.\n\nNOTE: Any and all currency used is completely fictional. We highly discourage underage gambling.\nIf you have any questions, please contact the casino owners, Sammie Z and Edward J.\n\nYou have "
+          "Welcome to ♠️ Aventurine's Adventures♠️ " + (name == null ? "" : (", " + name)) + "!\nA lifetime of opportunities awaits! We offer the highest quality blackjack and Texas Hold'em poker tables only.\n\nNOTE: Any and all currency used is completely fictional. We highly discourage underage gambling.\nIf you have any questions, please contact the casino owners, Sammie Z and Edward J.\n\nYou have "
               + (chips == -1 ? 0 : chips)
               + "✨ primogems.");
       if (chips == -1)

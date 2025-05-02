@@ -24,7 +24,6 @@ public class Blackjack {
     Utils.clearScreen();
     System.out.println("Welcome to the Blackjack table!");
     System.out.println("You will be playing against the dealer, " + players.get(1).getName() + ".");
-    // maybe use fancy clear screen util
     // run action() function on each player before dealing cards to collect $$$
     // action to print info // or game print board-equivalent
     action = players.get(0).action(prevBet); // get bet
