@@ -16,7 +16,7 @@ public class Casino { // will operate blackjack/poker games
       System.out.println(
           "Welcome to ♠️ Aventurine's Adventures♠️ !\nA lifetime of opportunities awaits! We offer the highest quality blackjack and Texas Hold'em poker tables only.\n\nNOTE: Any and all currency used is completely fictional. We highly discourage underage gambling.\nIf you have any questions, please contact the casino owners, Sammie Z and Edward J.\n\nYou have "
               + (chips == -1 ? 0 : chips)
-              + "✨ primogems.\nWhat game would you like to play? Remember, type \"q\" anytime to quit the program!");
+              + "✨ primogems.\nWhat would you like to do? Remember, type \"q\" anytime to quit the program!");
       int game = Player.getValidInt("[1] Poker [2] Blackjack [3] Help [4] Exit Casino", 1, 4);
       if (game == 4)
         break;
