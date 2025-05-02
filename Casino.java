@@ -7,6 +7,7 @@ public class Casino { // will operate blackjack/poker games
   private PlayerStat poker;
   private PlayerStat black;
   private int chips = -1;
+  private String name;
 
   public void start() {
     poker = new PlayerStat(0);
@@ -27,7 +28,7 @@ public class Casino { // will operate blackjack/poker games
       }
       if (chips == -1)
         chips = Player.getValidInt("What is your buy-in (in primogems ✨, 1000 recommended): [500-1000]", 500, 1000);
-      String name = Player.getValidStr("What is your name? (3-20 char limit)", 3, 20);
+      if (name == null)  name = Player.getValidStr("What is your name? (3-20 char limit)", 3, 20);
       if (game == 1) {
         PokerPlayer mainPlayer = new PokerPlayer(name);
         mainPlayer.removeChips(mainPlayer.getChips());
@@ -37,9 +38,9 @@ public class Casino { // will operate blackjack/poker games
         } catch (InterruptedException e) {
           e.printStackTrace();
         }
-        PokerPlayer[] ps = new PokerPlayer[6];
-        ps[0] = mainPlayer;
         int x = (int) (Math.random() * (10-4+1) + 4);
+        PokerPlayer[] ps = new PokerPlayer[x];
+        ps[0] = mainPlayer;
         for (int i = 1; i < x; i++)
           ps[i] = new PokerBot();
         p = new PokerGame(ps);
