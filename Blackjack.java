@@ -126,8 +126,6 @@ public class Blackjack {
     if (s.equals("n") || s.equals("no") || s.equals("nah")) {
       System.out.println("Game over! You ended the game early. Here are your stats:\n");
       System.out.println(mp);
-      System.out.println("\nPress Enter to continue:");
-      sc.nextLine();
     } else {
       deck.reset();
       action = new int[2];
