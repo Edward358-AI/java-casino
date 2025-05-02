@@ -77,7 +77,7 @@ public class Casino { // will operate blackjack/poker games
       }
     }
     Utils.clearScreen();
-    System.out.println("Thanks for playing at ♠️ Aventurine's Adventures♠️ ! Here are your final statistics:");
+    System.out.println("Thank you " + name + ", for playing at ♠️ Aventurine's Adventures♠️ ! Here are your final statistics:\nFinal primogems: " + chips + "✨");
     Utils.sleep(1000);
     System.out.println("\nPoker Stats:");
     System.out.println(poker);
