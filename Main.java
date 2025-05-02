@@ -1,6 +1,4 @@
-import java.util.*;
-
-// ♠♣♦♥ for testing purposes
+// import java.util.*;
 
 public class Main {
   public static void main(String[] args) {

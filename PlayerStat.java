@@ -5,14 +5,58 @@ public class PlayerStat {
   private int totalLoss;
   private int biggestGain;
   private int allInTimes;
+  private int totalChips;
 
-  public PlayerStat() {
+  public PlayerStat(int chips) {
     hands = 0;
     totalBet = 0;
     totalWin = 0;
     totalLoss = 0;
     biggestGain = 0;
     allInTimes = 0;
+    totalChips = chips;
+  }
+
+  public int getHands() {
+    return hands;
+  }
+
+  public int getBets() {
+    return totalBet;
+  }
+
+  public int getWins() {
+    return totalWin;
+  }
+
+  public int getLoss() {
+    return totalLoss;
+  }
+
+  public int getGain() {
+    return biggestGain;
+  }
+
+  public int allIns() {
+    return allInTimes;
+  }
+
+  public void merge(PlayerStat p) {
+    if (p != null) {
+      hands += p.getHands();
+      totalBet += p.getBets();
+      totalWin += p.getWins();
+      totalLoss += p.getLoss();
+      biggestGain += p.getGain();
+      allInTimes += p.allIns();
+    }
+  }
+
+  public int getChips() {
+    return totalChips;
+  }
+  public void setChips(int chips) {
+    totalChips = chips;
   }
 
   public void hands() {
@@ -32,7 +76,8 @@ public class PlayerStat {
   }
 
   public void setGain(int gain) {
-    if (gain > biggestGain) biggestGain = gain;
+    if (gain > biggestGain)
+      biggestGain = gain;
   }
 
   public void allIn() {

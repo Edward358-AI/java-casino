@@ -12,4 +12,11 @@ public class Utils {
       System.out.println("Exception: " + e);
     }
   }
+  public static void sleep(int time) {
+    try {
+      Thread.sleep(time);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+  }
 }

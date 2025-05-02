@@ -5,12 +5,18 @@ public class Blackjack {
   private ArrayList<BJPlayer> players = new ArrayList<BJPlayer>();
   private int prevBet;
   private Scanner sc = new Scanner(System.in);
+  private PlayerStat mp;
 
   public Blackjack(BJPlayer p) {
     deck = new Deck();
     players.add(p);
     players.add(new BJBot());
     prevBet = 0;
+    mp = new PlayerStat(0);
+  }
+
+  public PlayerStat getStat() {
+    return mp;
   }
 
   private void main() {
@@ -23,15 +29,14 @@ public class Blackjack {
     // action to print info // or game print board-equivalent
     action = players.get(0).action(prevBet); // get bet
     prevBet = action[1];
+    mp.addBet(prevBet);
+    if (prevBet == players.get(0).getChips())
+      mp.allIn();
     for (BJPlayer player : players) { // give all players two cards
       player.add(deck.deal()[0]);
       player.add(deck.deal()[0]);
     }
-    try {
-      Thread.sleep(1000);
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
+    Utils.sleep(1000);
     Utils.clearScreen();
     for (int i = players.size() - 1; i >= 0; i--) {
       players.get(i).dispHand();
@@ -48,10 +53,13 @@ public class Blackjack {
           System.out.println(players.get(1).getName() + " hit a blackjack!");
           System.out.println("You immediately lost " + prevBet + "✨!");
           players.get(0).removeChips(prevBet);
+          mp.addLoss(prevBet);
         } else {
           System.out.println(players.get(0).getName() + " hit a blackjack!");
           System.out.println("You won " + (int) (prevBet * 1.5) + "✨!");
           players.get(0).addChips((int) (prevBet * 1.5));
+          mp.addWin((int) (prevBet * 1.5));
+          mp.setGain((int) (prevBet * 1.5));
         }
       }
     } else {
@@ -59,11 +67,7 @@ public class Blackjack {
       boolean busted = false;
       do {
         action = players.get(0).action(prevBet);
-        try {
-          Thread.sleep(1000);
-        } catch (InterruptedException e) {
-          e.printStackTrace();
-        }
+        Utils.sleep(1000);
         if (action[0] == 1) {
           players.get(0).add(deck.deal()[0]);
           Utils.clearScreen();
@@ -74,12 +78,14 @@ public class Blackjack {
         if (action[0] == 3) {
           System.out.println("You surrendered and got back " + prevBet / 2 + "✨!");
           players.get(0).removeChips(prevBet / 2);
+          mp.addLoss(prevBet / 2);
           surrendered = true;
           break;
         }
         if (getSum(players.get(0).getHand().toArray(new Card[players.get(0).getHand().size()])) > 21) {
           System.out.println("You busted! You lost " + prevBet + "✨!");
           players.get(0).removeChips(prevBet);
+          mp.addLoss(prevBet);
           busted = true;
           break;
         }
@@ -103,17 +109,25 @@ public class Blackjack {
         int player = getSum(players.get(0).getHand().toArray(new Card[players.get(0).getHand().size()]));
         if (player > dealer || dealer > 21) {
           players.get(0).addChips(prevBet);
+          mp.addWin(prevBet);
+          mp.setGain(prevBet);
           System.out.println("You beat the dealer! You won " + prevBet + "✨");
         } else {
           players.get(0).removeChips(prevBet);
+          mp.addLoss(prevBet);
           System.out.println(
               "Dealer " + ((player == dealer) ? "tied, house rules, y" : "won! Y") + "ou lost " + prevBet + "✨");
         }
       }
     }
+    mp.hands();
     System.out.println("Continue playing? [y/n]:");
     String s = sc.nextLine().strip().toLowerCase();
     if (s.equals("n") || s.equals("no") || s.equals("nah")) {
+      System.out.println("Game over! You ended the game early. Here are your stats:\n");
+      System.out.println(mp);
+      System.out.println("\nPress Enter to continue:");
+      sc.nextLine();
     } else {
       deck.reset();
       action = new int[2];
@@ -122,11 +136,11 @@ public class Blackjack {
       if (players.get(0).getChips() > 0)
         main();
       else {
-        System.out.println("Game over! You ran out of primogems.");
-        System.out.println("Press Enter to continue:");
-        sc.nextLine();
+        System.out.println("Game over! You ran out of primogems. Here are your stats:\n");
+        System.out.println(mp);
       }
     }
+    mp.setChips(players.get(0).getChips());
   }
 
   public void initialize() {

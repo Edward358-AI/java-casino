@@ -154,11 +154,7 @@ public class PokerPot {
           + d.getBoard()[2].getValue() + " - " + d.getBoard()[3].getValue() + " - " +
           d.getBoard()[4].getValue());
       System.out.println(toString() + "\n");
-      try {
-        Thread.sleep(1000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
+      Utils.sleep(1000);
       for (int k = 0; k < pots.size(); k++) {
         ArrayList<Integer> currBest = new ArrayList<Integer>();
         Card[] bestHand = new Card[5];
@@ -174,11 +170,7 @@ public class PokerPot {
                 System.out.println("YOUR hand: " + eligible.get(k).get(i).getHand()[0].getValue()
                     + " "
                     + eligible.get(k).get(i).getHand()[1].getValue());
-              try {
-                Thread.sleep(1000);
-              } catch (InterruptedException e) {
-                e.printStackTrace();
-              }
+              Utils.sleep(1000);
             }
 
             if (currBest.size() > 0) {
@@ -214,11 +206,7 @@ public class PokerPot {
           }
         } else {
           eligible.get(k).get(currBest.get(0)).addChips(pots.get(k));
-          try {
-            Thread.sleep(1000);
-          } catch (InterruptedException e) {
-            e.printStackTrace();
-          }
+          Utils.sleep(1000);
           System.out.print(eligible.get(k).get(currBest.get(0)).getName() + " won ✨" + pots.get(k) + " from the "
               + ((k == 0) ? "main" : "side") + " pot! Their hand was ");
           Card[] theHand = d.getBestHand(eligible.get(k).get(currBest.get(0)).getHand());
@@ -237,11 +225,7 @@ public class PokerPot {
       for (int k = 0; k < pots.size(); k++) {
         for (int i = 0; i < eligible.get(k).size(); i++)
           if (eligible.get(k).get(i).inHand()) {
-            try {
-              Thread.sleep(1000);
-            } catch (InterruptedException e) {
-              e.printStackTrace();
-            }
+            Utils.sleep(1000);
             eligible.get(k).get(i).addChips(pots.get(k));
             System.out.println(eligible.get(k).get(i).getName() + " won ✨" + pots.get(k)
                 + " this hand! Everyone else folded.");
