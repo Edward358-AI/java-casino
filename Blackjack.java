@@ -5,7 +5,7 @@ public class Blackjack {
   private ArrayList<BJPlayer> players = new ArrayList<BJPlayer>();
   private int prevBet;
   private Scanner sc = new Scanner(System.in);
-  private PlayerStat mp;
+  private PlayerStat mp; // player stats for the game
 
   public Blackjack(BJPlayer p) {
     deck = new Deck();
@@ -39,12 +39,12 @@ public class Blackjack {
     Utils.sleep(1000);
     Utils.clearScreen();
     for (int i = players.size() - 1; i >= 0; i--) {
-      players.get(i).dispHand();
+      players.get(i).dispHand(); // displays hand
     }
 
     int dealerTemp = getSum(players.get(1).getHand().toArray(new Card[2]));
     int playerTemp = getSum(players.get(0).getHand().toArray(new Card[2]));
-    if (dealerTemp == 21 || playerTemp == 21) {
+    if (dealerTemp == 21 || playerTemp == 21) { // checks for blackjacks
       if (dealerTemp == 21 && playerTemp == 21) {
         System.out.println("Both you and the dealer got a blackjack; tie");
         System.out.println("You are returned your original bet.");
@@ -65,7 +65,7 @@ public class Blackjack {
     } else {
       boolean surrendered = false;
       boolean busted = false;
-      do {
+      do { // continues prompting user until they stand/surrender/bust
         action = players.get(0).action(prevBet);
         Utils.sleep(1000);
         if (action[0] == 1) {
@@ -76,14 +76,14 @@ public class Blackjack {
           }
         }
         if (action[0] == 3) {
-          System.out.println("You surrendered and got back " + prevBet / 2 + "✨!");
+          System.out.println("You surrendered and got back " + prevBet / 2 + "✨!"); // surrender
           players.get(0).removeChips(prevBet / 2);
           mp.addLoss(prevBet / 2);
           surrendered = true;
           break;
         }
         if (getSum(players.get(0).getHand().toArray(new Card[players.get(0).getHand().size()])) > 21) {
-          System.out.println("You busted! You lost " + prevBet + "✨!");
+          System.out.println("You busted! You lost " + prevBet + "✨!"); // busted
           players.get(0).removeChips(prevBet);
           mp.addLoss(prevBet);
           busted = true;
@@ -101,7 +101,7 @@ public class Blackjack {
           }
         } while (action[0] == 1);
         Utils.clearScreen();
-        System.out.print("SHOWDOWN:\n");
+        System.out.print("SHOWDOWN:\n"); // assign winners
         BJBot b = (BJBot) players.get(1);
         b.dispHand(true);
         players.get(0).dispHand();
@@ -145,10 +145,10 @@ public class Blackjack {
     main();
   }
 
-  private int getNumber(Card c) {
+  private int getNumber(Card c) { // gets the numerical value of a card based on blackjack rules
     int num = -1;
     String temp = c.getValue().substring(0, 1);
-    switch (temp) { // this gets the numerical value of the card
+    switch (temp) { 
       case "T":
         num = 10;
         break;
@@ -170,7 +170,7 @@ public class Blackjack {
     return num;
   }
 
-  public int getSum(Card[] c) {
+  public int getSum(Card[] c) { // sums a blackjack hand and incorporates the varying value of aces properly
     int runningSum = 0;
     int numAces = 0;
     for (Card ca : c) {

@@ -11,7 +11,7 @@ class PokerGame {
   private PokerPot pot; // a pokerpot object which keeps track of player contributions and the pot
   private int currBet; // current bet for round
   private int[] currConts; // current contributions this round
-  private PlayerStat mp;
+  private PlayerStat mp; // keeps track of players stats for the game
 
   public PokerGame(PokerPlayer[] players) { // initialiaze a poker game
     this.players = players;
@@ -189,7 +189,7 @@ class PokerGame {
       showdown(1);
   }
 
-  private void showdown(int c) { // assign winnner
+  private void showdown(int c) { // assign winnner at end of hand
     int[] stats = pot.assignWinner(p, c);
     if (stats[0] == 1) {
       mp.addWin(stats[1]);
@@ -301,7 +301,7 @@ class PokerGame {
     }
   }
 
-  private int stillIn() {
+  private int stillIn() { // gets # of players still in
     int in = 0;
     for (int i = 0; i < players.length; i++)
       if (players[i].inHand())

@@ -4,7 +4,7 @@ public class Card {
   public Card(String value) {
     this.value = value;
     String temp = value.substring(0,1);
-      switch(temp) { // this gets the numerical value of the card
+      switch(temp) { // this gets the numerical value of the card FOR POKER ONLY!
         case "T":
           num = 10;
           break;

@@ -12,7 +12,7 @@ public class PokerBot extends PokerPlayer {
   public PokerBot() {
     super("temp");
     randomName();
-    dumb = true; 
+    dumb = true;
     if (Math.random() > 0.5)
       dumb = false;
     if (super.getName().equals("Aventurine")) {
@@ -31,7 +31,6 @@ public class PokerBot extends PokerPlayer {
     }
   }
 
-  
   public int[] action(String round, int prevBet, int bet, int blind, Card[] board) {
     if (dumb) {
       int[] action = new int[2];
@@ -92,10 +91,13 @@ public class PokerBot extends PokerPlayer {
       return action;
     } else {
       int[] action = new int[2];
-      if (round.equals("preflop")) { // if hand is in the range, plays it only if bet is lower than half of current
-                                     // stack, otherwise, has a 80% chance to call and 20% chance of folding. for the
-                                     // former, 20% chance to raise, 80% chance to call.
-        // if hand is out of range, has a 25% chance to call and 75% chance of folding.
+      if (round.equals("preflop")) {
+        /*
+         * if hand is in the range, plays it only if bet is lower than half of current
+         * stack, otherwise, has a 80% chance to call and 20% chance of folding.
+         * for the former, 20% chance to raise, 80% chance to call.
+         * if hand is out of range, has a 25% chance to call and 75% chance of folding.
+         */
         boolean isHand = false;
         for (int[] h : hands) {
           if (Arrays.equals(Deck.cardToInt(super.getHand()), h)) {
@@ -103,7 +105,7 @@ public class PokerBot extends PokerPlayer {
             if (bet < super.getChips() / 2) {
               if (Math.random() < 0.2) {
                 action[0] = 3;
-                action[1] = (bet == 0) ? (int) (blind * (Math.random() + 2)): (int) (bet * (Math.random() + 2));
+                action[1] = (bet == 0) ? (int) (blind * (Math.random() + 2)) : (int) (bet * (Math.random() + 2));
               } else {
                 action[0] = 1;
                 if (bet > 0) {
@@ -133,8 +135,9 @@ public class PokerBot extends PokerPlayer {
             action[0] = 2;
           }
         }
-      } else { // three betting settings: 0 - call 1 - bets/raise to 100-150% of current bet, 2
-               // - 150-300% of current bet, 3 - 300% to all in. 4 - fold
+      } else {
+        // three betting settings: 0 - call 1 - bets/raise to 100-150% of current bet, 2
+        // - 150-300% of current bet, 3 - 300% to all in. 4 - fold
         // if this has straight or flush: 0 - 25%, 1 - 55%, 2 - 15%, 3 - 5%, 4 - 0%.
         // if full house: 0 - 5%, 1 - 35%, 2 - 45%, 3 - 15%, 4 - 0%.
         // if four of kind or straight flush: 0 - 0%, 1 - 15%, 2 - 25%, 3 - 60%, 4 - 0%.
@@ -279,6 +282,7 @@ public class PokerBot extends PokerPlayer {
       return action;
     }
   }
+
   public boolean[] draw(Card[] total) { // checks to see if the combined hand and board contains a draw, i.e. 4 cards in
                                         // a straight or 4 cards in a flush (draw for full house is js two pair or three
                                         // of a kind)

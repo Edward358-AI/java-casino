@@ -41,7 +41,7 @@ public class Player {
     this.in = in;
   }
 
-  public static int getValidInt(String message, int min, int max) {
+  public static int getValidInt(String message, int min, int max) { // continuously prompt user for valid int given range and message to keep prompting with
     int x;
     while (true) {
       System.out.println(message);
@@ -56,7 +56,7 @@ public class Player {
     }
     return x;
   }
-  public static String getValidStr(String message, int min, int max) {
+  public static String getValidStr(String message, int min, int max) { // continusoly prompt user for valid string between certain length
     int x;
     String r;
     while (true) {

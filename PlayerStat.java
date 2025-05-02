@@ -41,7 +41,7 @@ public class PlayerStat {
     return allInTimes;
   }
 
-  public void merge(PlayerStat p) {
+  public void merge(PlayerStat p) { // merges two PlayerStat objects
     if (p != null) {
       hands += p.getHands();
       totalBet += p.getBets();

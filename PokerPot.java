@@ -1,5 +1,14 @@
 import java.util.*;
 
+/*
+ * How the pot works:
+ * keeps track of pot for a hand. the current player setup is stored in p.
+ * each players TOTAL contributions are tracked through contributions array, with indices corresponding to PokerPlayer array p.
+ * pots keeps track of each pot and the number of chips it holds. this includes main pot and all side pots.
+ * eligible keeps track of number of players currently eligible to win the pot at the corresponding index in pots.
+ * maxBet is the maximum contribution that a player has made for the hand.
+ */
+
 public class PokerPot {
   private PokerPlayer[] p;
   private int[] contributions;
@@ -22,7 +31,7 @@ public class PokerPot {
     contributions = cont;
   }
 
-  public void resetPot(PokerPlayer[] players) {
+  public void resetPot(PokerPlayer[] players) { // resets pot for a new hand
     p = players;
     contributions = new int[p.length];
     pots.clear();
@@ -44,6 +53,14 @@ public class PokerPot {
     return p;
   }
 
+  /*
+   * this function below seems very complex, but heres a breakdown of what it does:
+   * it essentially uses the players and their total contributions so far for the
+   * hand to construct the pots from scratch. 
+   * reason being this is in my opinion simpler to code than updating the pots because say if a player with a lower contribution than the current lowest for the main pot, then the pots need to be completely reworked for this new player contribution.
+   * if you only update the pots as you go, you'll have to backtrack and redo all the pots anyways as a result of the above.
+   * you could probably make this more efficient by only doing the pot reconstruction if the amount bet is lower than the minimum contribution but eh laziness exists and it required a lot of effort to make the below code work in the first place lol
+   */
   private void updatePot() {
     pots.clear();
     eligible.clear();
@@ -126,8 +143,8 @@ public class PokerPot {
     }
   }
 
-  public String toString() {
-    updatePot();
+  public String toString() { // returns a string of the pot(s) formatted in a nice, friendly and readable way
+    updatePot(); // runs a pot update before it prints—don't want to print the wrong stuff!
     String result = "";
     result += "Main pot: ✨" + pots.get(0) + " | Eligible: ";
     for (PokerPlayer p : eligible.get(0))
@@ -144,7 +161,7 @@ public class PokerPot {
     return result;
   }
 
-  public int[] assignWinner(PokerDeck d, int complete) {
+  public int[] assignWinner(PokerDeck d, int complete) { // assigns winners across all the pots.
     int[] stats = new int[2]; // 0 is loss, 1 is win for the player
     System.out.println("*** SHOWDOWN ***");
     updatePot();
