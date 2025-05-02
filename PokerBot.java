@@ -195,7 +195,7 @@ public class PokerBot extends PokerPlayer {
           for (int i = 0; i < board.length; i++)
             temp[i + 2] = board[i];
           boolean[] draw = draw(temp);
-          if (rank == 6 || rank == 7 || draw[0] || draw[1]) {
+          if (rank == 6 || rank == 7 || ((draw[0] || draw[1]) && board.length < 3)) {
             if (bet < super.getChips() / 2) {
               if (rand <= 50) {
                 subAction = 0;
