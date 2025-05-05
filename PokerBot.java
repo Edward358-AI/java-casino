@@ -39,14 +39,15 @@ public class PokerBot extends PokerPlayer {
         action[0] = 4;
         action[1] = super.getChips();
       } else if (bet < super.getChips()) {
-        if (rand >= 0 && rand < 0.75) {
+        if (rand >= 0 && rand < 0.75) { // 75% chance to call
           action[0] = 1;
           if (bet > 0) {
             action[1] = (bet >= super.getChips()) ? super.getChips() : bet - prevBet;
           } else
             action[1] = (bet == 0) ? 0 : bet - prevBet;
-        } else if (rand >= 0.75 && rand < 0.85) {
+        } else if (rand >= 0.75 && rand < 0.85) { // 10% chance to raise
           if (((bet == 0) ? blind : bet * 2) + super.getChips() / 10 < super.getChips()) {
+            // however, only raises if the bet meets certain conditions
             int max;
             int min;
             if (round.equals("preflop")) {
@@ -65,6 +66,7 @@ public class PokerBot extends PokerPlayer {
             action[0] = 3;
             action[1] = (int) (Math.random() * (max - min + 1) + min);
           } else {
+            // if those "conditions" are not met, then has 15% to continue and all in the current bet, otherwise folds.
             if (Math.random() > 0.85) {
               action[0] = 4;
               action[1] = super.getChips();
@@ -73,9 +75,9 @@ public class PokerBot extends PokerPlayer {
 
             }
           }
-        } else if (rand >= 0.85 && rand < 0.97) {
+        } else if (rand >= 0.85 && rand < 0.97) { // 12% chance to call/fold
           action[0] = (bet == 0) ? 1 : 2;
-        } else {
+        } else { // 3% chance to all in
           action[0] = 4;
           action[1] = super.getChips();
         }
