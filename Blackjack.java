@@ -75,7 +75,7 @@ public class Blackjack {
           }
         }
         if (action[0] == 3) {
-          System.out.println("You surrendered and got back " + prevBet / 2 + "✨!"); // surrender
+          System.out.println("You surrendered and got back " + (prevBet % 2 == 1 ? prevBet / 2 + 1 : prevBet / 2) + "✨!"); // surrender
           players.get(0).removeChips(prevBet / 2);
           mp.addLoss(prevBet / 2);
           surrendered = true;

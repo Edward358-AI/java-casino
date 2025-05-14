@@ -34,12 +34,20 @@ public class BJPlayer extends Player {
     // external method to check if win
     if (hand.size() == 0) {
       out[0] = 0;
-      out[1] = BJPlayer.getValidInt("Current stack: " + getChips() + "✨\nPlace your bet: (50-" + getChips() + "✨)", 50, getChips());
+      if (super.getChips() >= 50) {
+        out[1] = BJPlayer.getValidInt("Current stack: " + getChips() + "✨\nPlace your bet: (50-" + getChips() + "✨)", 50, getChips());
+      } else {
+        out[1] = BJPlayer.getValidInt("Current stack: " + getChips() + "✨\nPlace your bet: (" + getChips() + "-" + getChips() + "✨)", getChips(), getChips());
+      }
       // System.out.println(out[0]);
       return out;
     } else {
       System.out.println("What will you do?");
-      out[0] = BJPlayer.getValidInt("[1] Hit [2] Stand [3] Surrender(-50% bet)", 1, 3);
+      if (getChips() == 1) {
+        out[0] = BJPlayer.getValidInt("[1] Hit [2] Stand", 1, 2);
+      } else {
+        out[0] = BJPlayer.getValidInt("[1] Hit [2] Stand [3] Surrender(-50% bet)", 1, 3);
+      }
       return out;
     }
     // System.out.println("Your hand: " + hand[0] + " " + hand[1]);
