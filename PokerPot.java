@@ -54,12 +54,20 @@ public class PokerPot {
   }
 
   /*
-   * this function below seems very complex, but heres a breakdown of what it does:
+   * this function below seems very complex, but heres a breakdown of what it
+   * does:
    * it essentially uses the players and their total contributions so far for the
-   * hand to construct the pots from scratch. 
-   * reason being this is in my opinion simpler to code than updating the pots because say if a player with a lower contribution than the current lowest for the main pot, then the pots need to be completely reworked for this new player contribution.
-   * if you only update the pots as you go, you'll have to backtrack and redo all the pots anyways as a result of the above.
-   * you could probably make this more efficient by only doing the pot reconstruction if the amount bet is lower than the minimum contribution but eh laziness exists and it required a lot of effort to make the below code work in the first place lol
+   * hand to construct the pots from scratch.
+   * reason being this is in my opinion simpler to code than updating the pots
+   * because say if a player with a lower contribution than the current lowest for
+   * the main pot, then the pots need to be completely reworked for this new
+   * player contribution.
+   * if you only update the pots as you go, you'll have to backtrack and redo all
+   * the pots anyways as a result of the above.
+   * you could probably make this more efficient by only doing the pot
+   * reconstruction if the amount bet is lower than the minimum contribution but
+   * eh laziness exists and it required a lot of effort to make the below code
+   * work in the first place lol
    */
   private void updatePot() {
     pots.clear();
@@ -225,9 +233,39 @@ public class PokerPot {
           eligible.get(k).get(currBest.get(0)).addChips(pots.get(k));
           Utils.sleep(1000);
           System.out.print(eligible.get(k).get(currBest.get(0)).getName() + " won ✨" + pots.get(k) + " from the "
-              + ((k == 0) ? "main" : "side") + " pot! Their hand was ");
+              + ((k == 0) ? "main" : "side") + " pot! Their hand was a ");
           Card[] theHand = d.getBestHand(eligible.get(k).get(currBest.get(0)).getHand());
           Deck.sort(theHand);
+          switch (d.getRanking(theHand)) {
+            case 1:
+              System.out.print("STRAIGHT FLUSH: ");
+              break;
+            case 2:
+              System.out.print("FOUR of a KIND: ");
+              break;
+            case 3:
+              System.out.print("FULL HOUSE: ");
+              break;
+            case 4:
+              System.out.print("FLUSH");
+              break;
+            case 5:
+              System.out.print("STRAIGHT");
+              break;
+            case 6:
+              System.out.print("THREE of a KIND");
+              break;
+            case 7:
+              System.out.print("TWO PAIR");
+              break;
+            case 8:
+              System.out.print("ONE PAIR");
+              break;
+            case 9:
+              System.out.print("HIGH Card");
+              break;
+          }
+          System.out.print(": ");
           for (int f = 0; f < 5; f++)
             System.out.print(theHand[f].getValue() + ((f == 4) ? "\n\n" : "  - "));
           if (!(eligible.get(k).get(currBest.get(0)) instanceof PokerBot)) {
@@ -236,7 +274,6 @@ public class PokerPot {
           }
         }
       }
-
     } else { // executes if the hand was abruptly stopped, i.e. everyone folded except one
              // person
       for (int k = 0; k < pots.size(); k++) {

@@ -94,7 +94,7 @@ class PokerDeck extends Deck { // a deck specifically designed to facilitate a g
         if (hand[i].getValue().charAt(1) != hand[i - 1].getValue().charAt(1))
           flush = false;
       }
-      rank = (flush && straight) ? 1 : ((flush || straight) ? ((flush) ? 5 : 6) : 9);
+      rank = (flush && straight) ? 1 : ((flush || straight) ? ((flush) ? 4 : 5) : 9);
     }
     return rank;
   }

@@ -110,12 +110,12 @@ public class Blackjack {
           players.get(0).addChips(prevBet);
           mp.addWin(prevBet);
           mp.setGain(prevBet);
-          System.out.println("You beat the dealer! You won " + prevBet + "✨");
+          System.out.println("You beat the dealer's hand! You won " + prevBet + "✨");
         } else {
           players.get(0).removeChips(prevBet);
           mp.addLoss(prevBet);
           System.out.println(
-              "Dealer " + ((player == dealer) ? "tied, house rules, y" : "won! Y") + "ou lost " + prevBet + "✨");
+              "Dealer " + ((player == dealer) ? "tied, house rules, y" : "beats your hand! Y") + "ou lost " + prevBet + "✨");
         }
       }
     }

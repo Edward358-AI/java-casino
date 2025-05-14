@@ -51,7 +51,7 @@ public class Casino { // will operate blackjack/poker games
         poker.merge(p.getStats());
         chips = p.getStats().getChips();
         if (chips != 0) {
-          System.out.println("We hope you enjoyed our blackjack tables! Would you like to play anything else? [y/n]");
+          System.out.println("We hope you enjoyed our poker tables! Would you like to play anything else? [y/n]");
           String s = sc.nextLine().strip().toLowerCase();
           if (s.equals("n") || s.equals("no") || s.equals("nah")) {
             break;

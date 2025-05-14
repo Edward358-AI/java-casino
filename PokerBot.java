@@ -46,21 +46,21 @@ public class PokerBot extends PokerPlayer {
           } else
             action[1] = (bet == 0) ? 0 : bet - prevBet;
         } else if (rand >= 0.75 && rand < 0.85) { // 10% chance to raise
-          if (((bet == 0) ? blind : bet * 2) + super.getChips() / 10 < super.getChips()) {
+          if (((bet == 0) ? blind : bet + blind) + super.getChips() / 10 < super.getChips()) {
             // however, only raises if the bet meets certain conditions
             int max;
             int min;
             if (round.equals("preflop")) {
-              max = super.getChips() / 10 + bet * 2;
-              min = bet * 2;
+              max = super.getChips() / 10 + bet + blind;
+              min = bet + blind;
             } else {
               if (bet == 0) {
                 max = super.getChips() / 10 + blind;
                 min = blind;
 
               } else {
-                max = super.getChips() / 10 + bet * 2;
-                min = bet * 2;
+                max = super.getChips() / 10 + bet + blind;
+                min = bet + blind;
               }
             }
             action[0] = 3;
