@@ -169,7 +169,7 @@ public class PokerPot {
     return result;
   }
 
-  public int[] assignWinner(PokerDeck d, int complete) { // assigns winners across all the pots.
+  public int[] assignWinner(PokerDeck d, int complete, PokerPlayer mainPlayer) { // assigns winners across all the pots.
     int[] stats = new int[2]; // 0 is loss, 1 is win for the player
     System.out.println("*** SHOWDOWN ***");
     updatePot();
@@ -187,14 +187,9 @@ public class PokerPot {
           if (eligible.get(k).get(i).inHand()) {
             Card[] currHand = d.getBestHand(eligible.get(k).get(i).getHand());
             if (k == 0) {
-              if (eligible.get(k).get(i) instanceof PokerBot)
-                System.out.println(eligible.get(k).get(i).getName() + "'s hand: " +
-                    eligible.get(k).get(i).getHand()[0].getValue() + " "
-                    + eligible.get(k).get(i).getHand()[1].getValue());
-              else
-                System.out.println("YOUR hand: " + eligible.get(k).get(i).getHand()[0].getValue()
-                    + " "
-                    + eligible.get(k).get(i).getHand()[1].getValue());
+              System.out.println(((eligible.get(k).get(i) == mainPlayer) ? "YOUR hand: " : eligible.get(k).get(i).getName() + "'s hand: ") +
+                  eligible.get(k).get(i).getHand()[0].getValue() + " "
+                  + eligible.get(k).get(i).getHand()[1].getValue());
               Utils.sleep(1000);
             }
 
@@ -224,7 +219,7 @@ public class PokerPot {
             for (int f = 0; f < 5; f++) {
               System.out.print(theHand[f].getValue() + ((f == 4) ? "\n\n" : "  - "));
             }
-            if (!(eligible.get(k).get(currBest.get(i)) instanceof PokerBot)) {
+            if (eligible.get(k).get(currBest.get(i)) == mainPlayer) {
               stats[0] = 1;
               stats[1] += pots.get(k) / currBest.size();
             }
@@ -268,7 +263,7 @@ public class PokerPot {
           System.out.print(": ");
           for (int f = 0; f < 5; f++)
             System.out.print(theHand[f].getValue() + ((f == 4) ? "\n\n" : "  - "));
-          if (!(eligible.get(k).get(currBest.get(0)) instanceof PokerBot)) {
+          if (eligible.get(k).get(currBest.get(0)) == mainPlayer) {
             stats[0] = 1;
             stats[1] += pots.get(k);
           }
@@ -283,7 +278,7 @@ public class PokerPot {
             eligible.get(k).get(i).addChips(pots.get(k));
             System.out.println(eligible.get(k).get(i).getName() + " won ✨" + pots.get(k)
                 + " this hand! Everyone else folded.");
-            if (!(eligible.get(k).get(i) instanceof PokerBot)) {
+            if (eligible.get(k).get(i) == mainPlayer) {
               stats[0] = 1;
               stats[1] += pots.get(k);
             }

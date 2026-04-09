@@ -4,7 +4,7 @@ public class Blackjack {
   private Deck deck; // deal, reset
   private ArrayList<BJPlayer> players = new ArrayList<BJPlayer>();
   private int prevBet;
-  private Scanner sc = new Scanner(System.in);
+  private Scanner sc = Player.sc;
   private PlayerStat mp; // player stats for the game
 
   public Blackjack(BJPlayer p) {

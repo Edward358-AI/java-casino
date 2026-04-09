@@ -3,7 +3,7 @@ import java.util.*;
 public class Casino { // will operate blackjack/poker games
   private PokerGame p; // poker game object
   private Blackjack bj; // blackjack game object
-  private Scanner sc = new Scanner(System.in);
+  private Scanner sc = Player.sc;
   private PlayerStat poker; // universal poker stats tracking
   private PlayerStat black; // universal blackjack statistics tracking
   private int chips = -1; // keeps track of universal chips
@@ -33,6 +33,8 @@ public class Casino { // will operate blackjack/poker games
         continue;
       }
       if (game == 1) {
+        int realPlayers = Player.getValidInt("How many real life players do you want to include? (1-10)", 1, 10);
+        int totalPlayers = (int) (Math.random() * (10 - Math.max(4, realPlayers) + 1) + Math.max(4, realPlayers));
         PokerPlayer mainPlayer = new PokerPlayer(name);
         mainPlayer.removeChips(mainPlayer.getChips());
         mainPlayer.addChips(chips);
@@ -41,10 +43,16 @@ public class Casino { // will operate blackjack/poker games
         } catch (InterruptedException e) {
           e.printStackTrace();
         }
-        int x = (int) (Math.random() * (10 - 4 + 1) + 4);
-        PokerPlayer[] ps = new PokerPlayer[x];
+        PokerPlayer[] ps = new PokerPlayer[totalPlayers];
         ps[0] = mainPlayer;
-        for (int i = 1; i < x; i++)
+        for (int i = 1; i < realPlayers; i++) {
+          String pName = Player.getValidStr("What is Player " + (i + 1) + "'s name? (3-20 char limit)", 3, 20);
+          int pChips = Player.getValidInt("What is " + pName + "'s buy-in (in primogems ✨, 1000 recommended): [500-1000]", 500, 1000);
+          ps[i] = new PokerPlayer(pName);
+          ps[i].removeChips(ps[i].getChips());
+          ps[i].addChips(pChips);
+        }
+        for (int i = realPlayers; i < totalPlayers; i++)
           ps[i] = new PokerBot();
         p = new PokerGame(ps);
         p.init();

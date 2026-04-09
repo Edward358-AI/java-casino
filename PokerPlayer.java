@@ -3,7 +3,7 @@ import java.util.*;
 public class PokerPlayer extends Player {
   Card[] hand;
   int status; // 0 regular, 1 sb, 2 bb
-  Scanner s = new Scanner(System.in);
+  Scanner s = Player.sc;
 
   public PokerPlayer(String name) {
     super(name);
