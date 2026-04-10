@@ -6,7 +6,8 @@ public class Utils {
         System.out.print("\033[H\033[2J");
         System.out.flush();
       } else {
-        new ProcessBuilder("clear").inheritIO().start().waitFor();
+        System.out.print("\033[H\033[2J\033[3J");
+        System.out.flush();
       }
     } catch (final Exception e) {
       System.out.println("Exception: " + e);

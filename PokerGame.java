@@ -108,65 +108,75 @@ class PokerGame {
       }
     }
     if (count > 0) {
-      realPlayerOrder = realPlayerOrder.substring(0, realPlayerOrder.length() - 4) + "\n\n";
+      realPlayerOrder = realPlayerOrder.substring(0, realPlayerOrder.length() - 4) + "\n";
       roundName += realPlayerOrder;
+    }
+
+    String positionMap = "Action order: ";
+    for (int k = 0; k < players.length; k++) {
+      int idx = (i + k) % players.length;
+      if (players[idx].inHand()) {
+        positionMap += players[idx].getName();
+        if (idx == 0)
+          positionMap += " (SB)";
+        else if (idx == 1)
+          positionMap += " (BB)";
+        else if (idx == players.length - 1)
+          positionMap += " (D)";
+        positionMap += " -> ";
+      }
+    }
+    if (positionMap.length() > 14) {
+      positionMap = positionMap.substring(0, positionMap.length() - 4) + "\n\n";
+      roundName += positionMap;
     } else {
       roundName += "\n";
     }
     String roundHistory = "";
-    Utils.clearScreen();
-    System.out.print(roundName);
     do {
       if (players[i].inHand() && players[i].getChips() > 0) {
-        if (players[i].inHand()) {
-          if (!(players[i] instanceof PokerBot)) {
-            Utils.clearScreen();
-            System.out.print(roundName + roundHistory);
-          }
+        Utils.clearScreen();
+        System.out.print(roundName + pot.toString() + "\n\n" + roundHistory);
 
-          String turnHeader = players[i].getName().toUpperCase() + "'s turn!\n" + pot.toString() + "\n";
-          
-          if (players[i] instanceof PokerBot) {
-            turnHeader += "Their current stack: ✨" + players[i].getChips() + "\n";
-            System.out.print(turnHeader);
-            Utils.sleep(1000);
-          } else {
-            System.out.print(turnHeader);
-          }
+        String turnHeader = players[i].getName().toUpperCase() + "'s turn!\n";
 
-          if (players[i].getChips() > 0) {
-            if (players[i] instanceof PokerBot) {
-              PokerBot temp = (PokerBot) players[i];
-              currAction = temp.action("preflop", currConts[i], currBet, blinds, null);
-            } else {
-              System.out.println("Are you " + players[i].getName() + "? Press Enter to confirm and show your hand...");
-              sc.nextLine();
-              Utils.clearScreen();
-              System.out.print(roundName + roundHistory);
-              System.out.print(turnHeader);
-              currAction = players[i].action("preflop", currConts[i], currBet, blinds);
-            }
-            
-            String actionLog = handleAction(i);
-            roundHistory += turnHeader + actionLog + "\n\n";
-            
-            if (!(players[i] instanceof PokerBot)) {
-              Utils.clearScreen();
-              System.out.print(roundName + roundHistory);
-            } else {
-              System.out.println(actionLog + "\n");
-            }
-          }
+        if (players[i] instanceof PokerBot) {
+          turnHeader += "Their current stack: ✨" + players[i].getChips() + "\n";
+          System.out.print(turnHeader);
           Utils.sleep(1000);
+        } else {
+          System.out.print(turnHeader);
         }
+
+        if (players[i] instanceof PokerBot) {
+          PokerBot temp = (PokerBot) players[i];
+          currAction = temp.action("preflop", currConts[i], currBet, blinds, null);
+        } else {
+          System.out.println("Are you " + players[i].getName() + "? Press Enter to confirm and show your hand...");
+          sc.nextLine();
+          Utils.clearScreen();
+          System.out.print(roundName + pot.toString() + "\n\n" + roundHistory);
+          System.out.print(turnHeader);
+          currAction = players[i].action("preflop", currConts[i], currBet, blinds);
+        }
+
+        String actionLog = handleAction(i);
+        if (players[i] instanceof PokerBot) {
+          System.out.println(actionLog + "\n");
+        } else {
+          System.out.println("\n" + actionLog);
+        }
+
+        roundHistory += turnHeader + actionLog + "\n\n";
+        Utils.sleep(1000);
       }
       if (i == players.length - 1)
         i = 0;
       else
         i++;
     } while (i != lastPlayer && stillIn() > 1);
-    System.out.println();
-    System.out.println(pot.toString());
+    Utils.clearScreen();
+    System.out.print(roundName + pot.toString() + "\n\n" + roundHistory);
     System.out.println("Press Enter to continue:");
     sc.nextLine();
     Utils.clearScreen();
@@ -187,7 +197,8 @@ class PokerGame {
     currBet = 0;
     int i = 0;
     for (int j = 0; j < 3; j++) {
-      String roundName = ((j == 0) ? "*** THE FLOP ***\n" : ((j == 1) ? "*** THE TURN (4th Street) ***\n" : "*** THE RIVER (5th Street) ***\n"));
+      String roundName = ((j == 0) ? "*** THE FLOP ***\n"
+          : ((j == 1) ? "*** THE TURN (4th Street) ***\n" : "*** THE RIVER (5th Street) ***\n"));
       String realPlayerOrder = "Real player order: ";
       int count = 0;
       for (int k = 0; k < players.length; k++) {
@@ -198,24 +209,40 @@ class PokerGame {
         }
       }
       if (count > 0) {
-        realPlayerOrder = realPlayerOrder.substring(0, realPlayerOrder.length() - 4) + "\n\n";
+        realPlayerOrder = realPlayerOrder.substring(0, realPlayerOrder.length() - 4) + "\n";
         roundName += realPlayerOrder;
+      }
+
+      String positionMap = "Action order: ";
+      for (int k = 0; k < players.length; k++) {
+        int idx = (i + k) % players.length;
+        if (players[idx].inHand()) {
+          positionMap += players[idx].getName();
+          if (idx == 0)
+            positionMap += " (SB)";
+          else if (idx == 1)
+            positionMap += " (BB)";
+          else if (idx == players.length - 1)
+            positionMap += " (D)";
+          positionMap += " -> ";
+        }
+      }
+      if (positionMap.length() > 14) {
+        positionMap = positionMap.substring(0, positionMap.length() - 4) + "\n\n";
+        roundName += positionMap;
       } else {
         roundName += "\n";
       }
       String roundHistory = "";
-      Utils.clearScreen();
-      System.out.print(roundName);
       do {
-        if (players[i].inHand()) {
-          if (!(players[i] instanceof PokerBot)) {
-            Utils.clearScreen();
-            System.out.print(roundName + roundHistory);
-          }
+        if (players[i].inHand() && players[i].getChips() > 0) {
+          String boardStr = "Board: " + b[0].getValue() + "  - " + b[1].getValue() + "  - " + b[2].getValue()
+              + ((j > 0) ? ("  - " + b[3].getValue()) : "") + ((j == 2) ? "  - " + b[4].getValue() : "");
 
-          String turnHeader = players[i].getName().toUpperCase() + "'s turn!\n" + pot.toString() + "\n";
-          turnHeader += "Board: " + b[0].getValue() + "  - " + b[1].getValue() + "  - " + b[2].getValue()
-              + ((j > 0) ? ("  - " + b[3].getValue()) : "") + ((j == 2) ? "  - " + b[4].getValue() : "") + "\n";
+          Utils.clearScreen();
+          System.out.print(roundName + boardStr + "\n\n" + pot.toString() + "\n\n" + roundHistory);
+
+          String turnHeader = players[i].getName().toUpperCase() + "'s turn!\n";
 
           if (players[i] instanceof PokerBot) {
             turnHeader += "Their current stack: ✨" + players[i].getChips() + "\n";
@@ -225,29 +252,26 @@ class PokerGame {
             System.out.print(turnHeader);
           }
 
-          if (players[i].getChips() > 0) {
-            if (players[i] instanceof PokerBot) {
-              PokerBot temp = (PokerBot) players[i];
-              currAction = temp.action("postflop", currConts[i], currBet, blinds, boardForBot.toArray(new Card[j + 3]));
-            } else {
-              System.out.println("Are you " + players[i].getName() + "? Press Enter to confirm and show your hand...");
-              sc.nextLine();
-              Utils.clearScreen();
-              System.out.print(roundName + roundHistory);
-              System.out.print(turnHeader);
-              currAction = players[i].action("postflop", currConts[i], currBet, blinds);
-            }
-
-            String actionLog = handleAction(i);
-            roundHistory += turnHeader + actionLog + "\n\n";
-
-            if (!(players[i] instanceof PokerBot)) {
-              Utils.clearScreen();
-              System.out.print(roundName + roundHistory);
-            } else {
-              System.out.println(actionLog + "\n");
-            }
+          if (players[i] instanceof PokerBot) {
+            PokerBot temp = (PokerBot) players[i];
+            currAction = temp.action("postflop", currConts[i], currBet, blinds, boardForBot.toArray(new Card[j + 3]));
+          } else {
+            System.out.println("Are you " + players[i].getName() + "? Press Enter to confirm and show your hand...");
+            sc.nextLine();
+            Utils.clearScreen();
+            System.out.print(roundName + boardStr + "\n\n" + pot.toString() + "\n\n" + roundHistory);
+            System.out.print(turnHeader);
+            currAction = players[i].action("postflop", currConts[i], currBet, blinds);
           }
+
+          String actionLog = handleAction(i);
+          if (players[i] instanceof PokerBot) {
+            System.out.println(actionLog + "\n");
+          } else {
+            System.out.println("\n" + actionLog);
+          }
+
+          roundHistory += turnHeader + actionLog + "\n\n";
           Utils.sleep(1000);
         }
 
@@ -256,17 +280,19 @@ class PokerGame {
         else
           i++;
       } while (i != lastPlayer && stillIn() > 1);
+      Utils.clearScreen();
+      String boardStr = "Board: " + b[0].getValue() + "  - " + b[1].getValue() + "  - " + b[2].getValue()
+          + ((j > 0) ? ("  - " + b[3].getValue()) : "") + ((j == 2) ? "  - " + b[4].getValue() : "");
+      System.out.print(roundName + boardStr + "\n\n" + pot.toString() + "\n\n" + roundHistory);
+      System.out.println("Press Enter to continue:");
+      sc.nextLine();
+      Utils.clearScreen();
       i = 0;
       lastPlayer = 0;
       currConts = new int[players.length];
       currBet = 0;
       if (j < 2)
         boardForBot.add(b[j + 3]);
-      System.out.println();
-      System.out.println(pot.toString());
-      System.out.println("Press Enter to continue:");
-      sc.nextLine();
-      Utils.clearScreen();
       if (stillIn() < 2)
         break;
     }
@@ -348,24 +374,24 @@ class PokerGame {
         currConts[i] += currAction[1];
         if (players[i].status() == 2) {
           if (currAction[1] != 0)
-            log = players[i].getName() + " in big blind calls for ✨" + currBet + ".";
+            log = players[i].getName() + " in big blind CALLS FOR ✨" + currBet + ".";
           else
-            log = players[i].getName() + " in big blind checks.";
+            log = players[i].getName() + " in big blind CHECKS.";
         } else {
           if (currAction[1] != 0)
             log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
-                + "calls for ✨" + currBet + ".";
+                + "CALLS FOR ✨" + currBet + ".";
           else
             log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
-                + "checks.";
+                + "CHECKS.";
         }
         break;
       case 2:
         players[i].setInHand(false);
         if (players[i].status() == 2)
-          log = players[i].getName() + " in big blind folds.";
+          log = players[i].getName() + " in big blind FOLDS.";
         else
-          log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "folds.";
+          log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "FOLDS.";
         break;
       default:
         if (players[i] == mainPlayer && currAction[0] == 4)
@@ -374,11 +400,11 @@ class PokerGame {
           mp.addBet(currAction[1]);
         if (players[i].status() == 2)
           log = players[i].getName() + " in big blind "
-              + ((currAction[0] == 4) ? "goes all in for" : ((currBet == 0) ? "bets" : "raises by"))
+              + ((currAction[0] == 4) ? "GOES ALL IN FOR" : ((currBet == 0) ? "BETS" : "RAISES BY"))
               + " ✨" + (currAction[1]) + ".";
         else
           log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
-              + ((currAction[0] == 4) ? "goes all in for" : ((currBet == 0) ? "bets" : "raises by")) + " ✨"
+              + ((currAction[0] == 4) ? "GOES ALL IN FOR" : ((currBet == 0) ? "BETS" : "RAISES BY")) + " ✨"
               + (currAction[1]) + ".";
 
         pot.addPlayerContribution(i, currAction[1]);

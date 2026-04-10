@@ -219,7 +219,9 @@ class PokerDeck extends Deck { // a deck specifically designed to facilitate a g
                 Arrays.sort(mode1);
                 Arrays.sort(mode2);
                 if (!Arrays.equals(mode1, mode2)) {
-                  return (mode1[0] > mode2[0] || mode1[1] > mode2[1]) ? 1 : 2; // if the pairs are not same, compare them directly
+                  if (mode1[1] != mode2[1])
+                    return (mode1[1] > mode2[1]) ? 1 : 2;
+                  return (mode1[0] > mode2[0]) ? 1 : 2;
                 } else { // else, check the "kicker" card, or the last card to determine equality
                   int last1 = 0;
                   int last2 = 0;
@@ -271,22 +273,17 @@ class PokerDeck extends Deck { // a deck specifically designed to facilitate a g
 
   private int mode(int[] j) { // returns the mode of int list, assuming j is already sorted
     int mode = j[0];
-    int[] k = new int[j.length];
-    k[0] = 1;
-    int currIndex = 0;
+    int maxFreq = 1;
+    int currFreq = 1;
     for (int i = 1; i < j.length; i++) {
-      if (j[i - 1] == j[i]) {
-        k[currIndex]++;
-        if (currIndex > 0) {
-          boolean greater = true;
-          for (int l = 0; l < currIndex; l++) {
-            if (k[currIndex] < k[l])
-              greater = false;
-          }
-          mode = greater ? j[i] : mode;
-        }
+      if (j[i] == j[i - 1]) {
+        currFreq++;
       } else {
-        currIndex++;
+        currFreq = 1;
+      }
+      if (currFreq >= maxFreq) {
+        maxFreq = currFreq;
+        mode = j[i];
       }
     }
     return mode;
