@@ -41,13 +41,20 @@ public class Player {
     this.in = in;
   }
 
-  public static int getValidInt(String message, int min, int max) { // continuously prompt user for valid int given range and message to keep prompting with
+  public static int getValidInt(String message, int min, int max) { 
+    Utils.flushInput();
+    return getValidInt(message, min, max, false);
+  }
+
+  public static int getValidInt(String message, int min, int max, boolean allowBack) { // continuously prompt user for valid int given range and message to keep prompting with
     int x;
+    if (!allowBack) Utils.flushInput();
     while (true) {
-      System.out.println(message);
+      System.out.println(message + (allowBack ? " [B] to go back" : ""));
       try {
         String z = sc.nextLine().trim();
         if (z.toLowerCase().trim().equals("q")) System.exit(0);
+        if (allowBack && z.toLowerCase().trim().equals("b")) return -1;
         x = Integer.parseInt(z);
         if (x >= min && x <= max) break;
         else System.out.print("Not within specified bounds! ");

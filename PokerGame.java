@@ -153,6 +153,7 @@ class PokerGame {
           currAction = temp.action("preflop", currConts[i], currBet, blinds, null);
         } else {
           System.out.println("Are you " + players[i].getName() + "? Press Enter to confirm and show your hand...");
+          Utils.flushInput();
           sc.nextLine();
           Utils.clearScreen();
           System.out.print(roundName + pot.toString() + "\n\n" + roundHistory);
@@ -178,6 +179,7 @@ class PokerGame {
     Utils.clearScreen();
     System.out.print(roundName + pot.toString() + "\n\n" + roundHistory);
     System.out.println("Press Enter to continue:");
+    Utils.flushInput();
     sc.nextLine();
     Utils.clearScreen();
     if (stillIn() < 2)
@@ -257,6 +259,7 @@ class PokerGame {
             currAction = temp.action("postflop", currConts[i], currBet, blinds, boardForBot.toArray(new Card[j + 3]));
           } else {
             System.out.println("Are you " + players[i].getName() + "? Press Enter to confirm and show your hand...");
+            Utils.flushInput();
             sc.nextLine();
             Utils.clearScreen();
             System.out.print(roundName + boardStr + "\n\n" + pot.toString() + "\n\n" + roundHistory);
@@ -285,6 +288,7 @@ class PokerGame {
           + ((j > 0) ? ("  - " + b[3].getValue()) : "") + ((j == 2) ? "  - " + b[4].getValue() : "");
       System.out.print(roundName + boardStr + "\n\n" + pot.toString() + "\n\n" + roundHistory);
       System.out.println("Press Enter to continue:");
+      Utils.flushInput();
       sc.nextLine();
       Utils.clearScreen();
       i = 0;

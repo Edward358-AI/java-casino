@@ -13,11 +13,21 @@ public class Utils {
       System.out.println("Exception: " + e);
     }
   }
+
   public static void sleep(int time) {
     try {
       Thread.sleep(time);
     } catch (InterruptedException e) {
       e.printStackTrace();
+    }
+  }
+
+  public static void flushInput() {
+    try {
+      while (System.in.available() > 0) {
+        System.in.read();
+      }
+    } catch (final Exception e) {
     }
   }
 }
