@@ -197,7 +197,7 @@ public class PokerBot extends PokerPlayer {
           for (int i = 0; i < board.length; i++)
             temp[i + 2] = board[i];
           boolean[] draw = draw(temp);
-          if (rank == 6 || rank == 7 || ((draw[0] || draw[1]) && board.length < 3)) {
+          if (rank == 6 || rank == 7 || ((draw[0] || draw[1]) && board.length < 5)) {
             if (bet < super.getChips() / 2) {
               if (rand <= 50) {
                 subAction = 0;
@@ -304,7 +304,8 @@ public class PokerBot extends PokerPlayer {
     int[] flushCount = new int[4]; // indexing: 0 - spades, 1 - clubs, 2 - diamonds, 3 - hearts
     boolean flushDraw = false;
     for (Card d : total) {
-      switch (d.getValue().substring(1, 2)) {
+      String suit = d.getValue().substring(1);
+      switch (suit) {
         case "♠️":
           flushCount[0]++;
           break;
