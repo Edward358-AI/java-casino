@@ -141,7 +141,7 @@ class PokerGame {
         String turnHeader = players[i].getName().toUpperCase() + "'s turn!\n";
 
         if (players[i] instanceof PokerBot) {
-          turnHeader += "Their current stack: ✨" + players[i].getChips() + "\n";
+          turnHeader += "Their stack: ✨" + players[i].getChips() + "\n";
           System.out.print(turnHeader);
           Utils.sleep(1000);
         } else {
@@ -162,11 +162,15 @@ class PokerGame {
         }
 
         String actionLog = handleAction(i);
-        if (players[i] instanceof PokerBot) {
-          System.out.println(actionLog + "\n");
-        } else {
-          System.out.println("\n" + actionLog);
-        }
+        if (!(players[i] instanceof PokerBot))
+          actionLog += " (real)";
+        // Reprint with updated stack after action
+        turnHeader = players[i].getName().toUpperCase() + "'s turn!\n";
+        turnHeader += "Their stack: ✨" + players[i].getChips() + "\n";
+        Utils.clearScreen();
+        System.out.print(roundName + pot.toString() + "\n\n" + roundHistory);
+        System.out.print(turnHeader);
+        System.out.println(actionLog + "\n");
 
         roundHistory += turnHeader + actionLog + "\n\n";
         Utils.sleep(1000);
@@ -247,7 +251,7 @@ class PokerGame {
           String turnHeader = players[i].getName().toUpperCase() + "'s turn!\n";
 
           if (players[i] instanceof PokerBot) {
-            turnHeader += "Their current stack: ✨" + players[i].getChips() + "\n";
+            turnHeader += "Their stack: ✨" + players[i].getChips() + "\n";
             System.out.print(turnHeader);
             Utils.sleep(1000);
           } else {
@@ -268,11 +272,15 @@ class PokerGame {
           }
 
           String actionLog = handleAction(i);
-          if (players[i] instanceof PokerBot) {
-            System.out.println(actionLog + "\n");
-          } else {
-            System.out.println("\n" + actionLog);
-          }
+          if (!(players[i] instanceof PokerBot))
+            actionLog += " (real)";
+          // Reprint with updated stack after action
+          turnHeader = players[i].getName().toUpperCase() + "'s turn!\n";
+          turnHeader += "Their stack: ✨" + players[i].getChips() + "\n";
+          Utils.clearScreen();
+          System.out.print(roundName + boardStr + "\n\n" + pot.toString() + "\n\n" + roundHistory);
+          System.out.print(turnHeader);
+          System.out.println(actionLog + "\n");
 
           roundHistory += turnHeader + actionLog + "\n\n";
           Utils.sleep(1000);
