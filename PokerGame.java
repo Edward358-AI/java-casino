@@ -334,7 +334,7 @@ class PokerGame {
       players[i] = players[i - 1];
     players[0] = first;
     if (hands == players.length) {
-      if (blinds < 1280)
+      if (blinds < 320)
         blinds *= 2;
       System.out.println("Round finished! Increasing blind sizes...");
       hands = 0;

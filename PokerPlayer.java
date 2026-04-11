@@ -33,21 +33,18 @@ public class PokerPlayer extends Player {
       case "preflop":
         int act;
         while (true) {
-          System.out.println("Your hand: " + hand[0].getValue() + "  " + hand[1].getValue());
-          System.out.println("Current amount to call is ✨" + bet + "." + " You have ✨" + super.getChips()
-              + "." + ((status == 1) ? " You are in small blind position."
-                  : ((status == 2) ? "You are in big blind position." : "")));
-          System.out.print("You have contributed ✨" + prevBet + " for this round. What is your action?\n");
+          System.out.println("Your hand: " + hand[0].getValue() + "  " + hand[1].getValue() + "  |  Your stack: ✨" + super.getChips());
+          System.out.println("To call: ✨" + bet + "  |  Your contribution: ✨" + prevBet + ((status == 1) ? " (SB)" : ((status == 2) ? " (BB)" : "")));
           if (bet < super.getChips()) {
             switch (status) {
               case 2:
                 if (prevBet == bet)
                   act = Player.getValidInt("[1] Check [2] Fold [3] Raise [4] All In", 1, 4);
                 else
-                  act = Player.getValidInt("[1] Call [2] Fold [3] Raise [4] All In", 1, 4);
+                  act = Player.getValidInt("[1] Call (" + (bet - prevBet) + ") [2] Fold [3] Raise [4] All In", 1, 4);
                 break;
               default:
-                act = Player.getValidInt("[1] Call [2] Fold [3] Raise [4] All In", 1, 4);
+                act = Player.getValidInt("[1] Call (" + (bet - prevBet) + ") [2] Fold [3] Raise [4] All In", 1, 4);
                 break;
             }
           } else {
@@ -101,16 +98,13 @@ public class PokerPlayer extends Player {
       default:
         int flop;
         while (true) {
-          System.out.println("Your hand is " + hand[0].getValue() + " " + hand[1].getValue());
-          System.out.println("Current amount to call is ✨" + bet + "." + " You have ✨" + super.getChips()
-              + "." + ((status == 1) ? " You are in small blind position."
-                  : ((status == 2) ? "You are in big blind position." : "")));
-          System.out.print("You have contributed ✨" + prevBet + " for this round. What is your action?\n");
+          System.out.println("Your hand: " + hand[0].getValue() + "  " + hand[1].getValue() + "  |  Your stack: ✨" + super.getChips());
+          System.out.println("To call: ✨" + bet + "  |  Your contribution: ✨" + prevBet + ((status == 1) ? " (SB)" : ((status == 2) ? " (BB)" : "")));
           if (bet < super.getChips()) {
             if (bet == 0)
               flop = Player.getValidInt("[1] Check [2] Fold [3] Bet [4] All In", 1, 4);
             else
-              flop = Player.getValidInt("[1] Call [2] Fold [3] Raise [4] All In", 1, 4);
+              flop = Player.getValidInt("[1] Call (" + (bet - prevBet) + ") [2] Fold [3] Raise [4] All In", 1, 4);
           } else {
             flop = Player.getValidInt("[1] Fold [2] All In", 1, 2);
             flop = (flop == 1) ? 2 : 4;
