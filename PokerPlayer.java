@@ -33,8 +33,10 @@ public class PokerPlayer extends Player {
       case "preflop":
         int act;
         while (true) {
-          System.out.println("Your hand: " + hand[0].getValue() + "  " + hand[1].getValue() + "  |  Your stack: ✨" + super.getChips());
-          System.out.println("To call: ✨" + bet + "  |  Your contribution: ✨" + prevBet + ((status == 1) ? " (SB)" : ((status == 2) ? " (BB)" : "")));
+          System.out.println(
+              "Your hand: " + hand[0].getValue() + "  " + hand[1].getValue() + "  |  Your stack: ✨" + super.getChips());
+          System.out.println("To call: ✨" + bet + "  |  Your contribution: ✨" + prevBet
+              + ((status == 1) ? " (SB)" : ((status == 2) ? " (BB)" : "")));
           if (bet < super.getChips()) {
             switch (status) {
               case 2:
@@ -98,8 +100,10 @@ public class PokerPlayer extends Player {
       default:
         int flop;
         while (true) {
-          System.out.println("Your hand: " + hand[0].getValue() + "  " + hand[1].getValue() + "  |  Your stack: ✨" + super.getChips());
-          System.out.println("To call: ✨" + bet + "  |  Your contribution: ✨" + prevBet + ((status == 1) ? " (SB)" : ((status == 2) ? " (BB)" : "")));
+          System.out.println(
+              "Your hand: " + hand[0].getValue() + "  " + hand[1].getValue() + " | Your stack: ✨" + super.getChips());
+          System.out.println("To call: ✨" + bet + " | Your contribution: ✨" + prevBet
+              + ((status == 1) ? " (SB)" : ((status == 2) ? " (BB)" : "")));
           if (bet < super.getChips()) {
             if (bet == 0)
               flop = Player.getValidInt("[1] Check [2] Fold [3] Bet [4] All In", 1, 4);
