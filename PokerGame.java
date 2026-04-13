@@ -360,6 +360,39 @@ class PokerGame {
       } else
         gameOver = true;
     }
+    // Random player join/leave (7% chance per hand)
+    if (!gameOver && Math.random() < 0.07) {
+      boolean tryRemove = Math.random() < 0.5;
+      if (tryRemove && players.length > 6) {
+        // Find all bot indices eligible to leave
+        ArrayList<Integer> botIndices = new ArrayList<>();
+        for (int k = 0; k < players.length; k++) {
+          if (players[k] instanceof PokerBot)
+            botIndices.add(k);
+        }
+        if (!botIndices.isEmpty()) {
+          int removeIdx = botIndices.get((int) (Math.random() * botIndices.size()));
+          String leavingName = players[removeIdx].getName();
+          PokerPlayer[] newPlayers = new PokerPlayer[players.length - 1];
+          int idx = 0;
+          for (int k = 0; k < players.length; k++) {
+            if (k != removeIdx)
+              newPlayers[idx++] = players[k];
+          }
+          players = newPlayers;
+          System.out.println(leavingName + " has left the table.");
+        }
+      } else if (players.length < 12) {
+        // Add a new bot
+        PokerPlayer[] newPlayers = new PokerPlayer[players.length + 1];
+        for (int k = 0; k < players.length; k++)
+          newPlayers[k] = players[k];
+        PokerBot newBot = new PokerBot();
+        newPlayers[players.length] = newBot;
+        players = newPlayers;
+        System.out.println("A new player has joined the table: " + newBot.getName() + "!");
+      }
+    }
     if (!gameOver) {
       players[0].setStatus(1);
       players[1].setStatus(2);

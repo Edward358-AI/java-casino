@@ -28,13 +28,13 @@ public class Casino { // will operate blackjack/poker games
         break;
       if (game == 3) {
         System.out.println(
-            "\nOur casino offers two games where you can play to your heart's content, Blackjack and No Limit Hold'em!\n\nOur rules of blackjack are the same as the tried and true classic favorite, blackjack, but with some modifications. Firstly, we don't have any special rules like double down, split, or insurance. We do have the option to surrender the hand though. Everything else you can expect to be the same! Ties will go to the dealer because those are house rules, except in the case of a blackjack tie in which the bet is returned to both players.\n\nOur No Limit Hold'em is practically the exact same as the official rules. We don't play with jokers, for your information. Our tables are extremely lively and popular, and your table may have as low as 5 people but maybe as high as 10 people playing.\n\nNow that you know our house rules, it's time to get out there and play! What do you say?\nPress enter to return to casino:");
+            "\nOur casino offers two games where you can play to your heart's content, Blackjack and No Limit Hold'em!\n\nOur rules of blackjack are the same as the tried and true classic favorite, blackjack, but with some modifications. Firstly, we don't have any special rules like double down, split, or insurance. We do have the option to surrender the hand though. Everything else you can expect to be the same! Ties will go to the dealer because those are house rules, except in the case of a blackjack tie in which the bet is returned to both players.\n\nOur No Limit Hold'em is practically the exact same as the official rules. We don't play with jokers, for your information. Our tables are extremely lively and popular, and your table may have as low as 6 people but maybe as high as 12 people playing. Throughout the game there will be players that may randomly leave or join.\n\nNow that you know our house rules, it's time to get out there and play! What do you say?\nPress enter to return to casino:");
         sc.nextLine();
         continue;
       }
       if (game == 1) {
-        int realPlayers = Player.getValidInt("How many real life players do you want to include? (1-10)", 1, 10);
-        int totalPlayers = (int) (Math.random() * (10 - Math.max(4, realPlayers) + 1) + Math.max(4, realPlayers));
+        int realPlayers = Player.getValidInt("How many real life players do you want to include? (1-12)", 1, 12);
+        int totalPlayers = (int) (Math.random() * (12 - Math.max(6, realPlayers) + 1) + Math.max(6, realPlayers));
         PokerPlayer mainPlayer = new PokerPlayer(name);
         mainPlayer.removeChips(mainPlayer.getChips());
         mainPlayer.addChips(chips);
