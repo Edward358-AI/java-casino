@@ -13,6 +13,7 @@ class PokerGame {
   private int[] currConts; // current contributions this round
   private PlayerStat mp; // keeps track of players stats for the game
   private PokerPlayer mainPlayer; // original player
+  private boolean skipMode = false; // keeps track of whether we are fast-forwarding
 
   public PokerGame(PokerPlayer[] players) { // initialiaze a poker game
     this.players = players;
@@ -143,7 +144,7 @@ class PokerGame {
         if (players[i] instanceof PokerBot) {
           turnHeader += "Their stack: ✨" + players[i].getChips() + "\n";
           System.out.print(turnHeader);
-          Utils.sleep(1000);
+          if (!skipMode) Utils.sleep(1000);
         } else {
           System.out.print(turnHeader);
         }
@@ -173,7 +174,7 @@ class PokerGame {
         System.out.println(actionLog + "\n");
 
         roundHistory += turnHeader + actionLog + "\n\n";
-        Utils.sleep(1000);
+        if (!skipMode) Utils.sleep(1000);
       }
       if (i == players.length - 1)
         i = 0;
@@ -182,9 +183,21 @@ class PokerGame {
     } while (i != lastPlayer && stillIn() > 1);
     Utils.clearScreen();
     System.out.print(roundName + pot.toString() + "\n\n" + roundHistory);
-    System.out.println("Press Enter to continue:");
-    Utils.flushInput();
-    sc.nextLine();
+    if (!skipMode && realPlayersIn() == 0) {
+      System.out.println("Type \"skip\" to fast forward the hand, or hit enter to continue:");
+      Utils.flushInput();
+      Player.sc = new Scanner(System.in);
+      sc = Player.sc;
+      String input = sc.nextLine().strip().toLowerCase();
+      if (input.equals("skip"))
+        skipMode = true;
+    } else if (!skipMode) {
+      System.out.println("Press Enter to continue:");
+      Utils.flushInput();
+      Player.sc = new Scanner(System.in);
+      sc = Player.sc;
+      sc.nextLine();
+    }
     Utils.clearScreen();
     if (stillIn() < 2)
       showdown(0);
@@ -253,7 +266,7 @@ class PokerGame {
           if (players[i] instanceof PokerBot) {
             turnHeader += "Their stack: ✨" + players[i].getChips() + "\n";
             System.out.print(turnHeader);
-            Utils.sleep(1000);
+            if (!skipMode) Utils.sleep(1000);
           } else {
             System.out.print(turnHeader);
           }
@@ -283,7 +296,7 @@ class PokerGame {
           System.out.println(actionLog + "\n");
 
           roundHistory += turnHeader + actionLog + "\n\n";
-          Utils.sleep(1000);
+          if (!skipMode) Utils.sleep(1000);
         }
 
         if (i == players.length - 1)
@@ -295,9 +308,21 @@ class PokerGame {
       String boardStr = "Board: " + b[0].getValue() + "  - " + b[1].getValue() + "  - " + b[2].getValue()
           + ((j > 0) ? ("  - " + b[3].getValue()) : "") + ((j == 2) ? "  - " + b[4].getValue() : "");
       System.out.print(roundName + boardStr + "\n\n" + pot.toString() + "\n\n" + roundHistory);
-      System.out.println("Press Enter to continue:");
-      Utils.flushInput();
-      sc.nextLine();
+      if (!skipMode && realPlayersIn() == 0 && j < 2) {
+        System.out.println("Type \"skip\" to fast forward the hand, or hit enter to continue:");
+        Utils.flushInput();
+        Player.sc = new Scanner(System.in);
+        sc = Player.sc;
+        String input = sc.nextLine().strip().toLowerCase();
+        if (input.equals("skip"))
+          skipMode = true;
+      } else if (!skipMode) {
+        System.out.println("Press Enter to continue:");
+        Utils.flushInput();
+        Player.sc = new Scanner(System.in);
+        sc = Player.sc;
+        sc.nextLine();
+      }
       Utils.clearScreen();
       i = 0;
       lastPlayer = 0;
@@ -331,6 +356,7 @@ class PokerGame {
   }
 
   private void newHand() { // setup for new hand
+    skipMode = false;
     hands++;
     mp.hands();
     boolean gameOver = false;
@@ -469,5 +495,14 @@ class PokerGame {
       if (players[i].inHand())
         in++;
     return in;
+  }
+
+  private int realPlayersIn() {
+    int count = 0;
+    for (PokerPlayer p : players) {
+      if (!(p instanceof PokerBot) && p.inHand())
+        count++;
+    }
+    return count;
   }
 }
