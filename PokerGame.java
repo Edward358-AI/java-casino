@@ -446,11 +446,11 @@ class PokerGame {
         if (players[i].status() == 2)
           log = players[i].getName() + " in big blind "
               + ((currAction[0] == 4) ? "GOES ALL IN FOR" : ((currBet == 0) ? "BETS" : "RAISES TO"))
-              + " ✨" + (currAction[1]) + ".";
+              + " ✨" + (currConts[i] + currAction[1]) + ".";
         else
           log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
               + ((currAction[0] == 4) ? "GOES ALL IN FOR" : ((currBet == 0) ? "BETS" : "RAISES TO")) + " ✨"
-              + (currAction[1]) + ".";
+              + (currConts[i] + currAction[1]) + ".";
 
         pot.addPlayerContribution(i, currAction[1]);
         currConts[i] += currAction[1];
