@@ -34,7 +34,17 @@ public class Casino { // will operate blackjack/poker games
       }
       if (game == 1) {
         int realPlayers = Player.getValidInt("How many real life players do you want to include? (1-12)", 1, 12);
-        int totalPlayers = (int) (Math.random() * (12 - Math.max(6, realPlayers) + 1) + Math.max(6, realPlayers));
+        System.out.println("How many total players would you like? (6-12) [Enter for random]");
+        String tpInput = sc.nextLine().trim();
+        int totalPlayers;
+        try {
+          totalPlayers = Integer.parseInt(tpInput);
+          if (totalPlayers < Math.max(6, realPlayers) || totalPlayers > 12) {
+            totalPlayers = (int) (Math.random() * (12 - Math.max(6, realPlayers) + 1) + Math.max(6, realPlayers));
+          }
+        } catch (Exception e) {
+          totalPlayers = (int) (Math.random() * (12 - Math.max(6, realPlayers) + 1) + Math.max(6, realPlayers));
+        }
         PokerPlayer mainPlayer = new PokerPlayer(name);
         mainPlayer.removeChips(mainPlayer.getChips());
         mainPlayer.addChips(chips);
