@@ -211,11 +211,11 @@ public class PokerPot {
         if (currBest.size() > 1) {
           for (int i = 0; i < currBest.size(); i++) {
             eligible.get(k).get(currBest.get(i)).addChips((int) (pots.get(k) / currBest.size()));
-            System.out
-                .print(eligible.get(k).get(currBest.get(i)).getName() + " won ✨" + (int) (pots.get(k) / currBest.size())
-                    + " from the " + ((k == 0) ? "main" : "side") + " pot! Their hand was ");
             Card[] theHand = d.getBestHand(eligible.get(k).get(currBest.get(i)).getHand());
             Deck.sort(theHand);
+            System.out
+                .print(eligible.get(k).get(currBest.get(i)).getName() + " won ✨" + (int) (pots.get(k) / currBest.size())
+                    + " from the " + ((k == 0) ? "main" : "side") + " pot! Their hand was a " + getRankingString(d.getRanking(theHand)) + ": ");
             for (int f = 0; f < 5; f++) {
               System.out.print(theHand[f].getValue() + ((f == 4) ? "\n\n" : "  - "));
             }
@@ -231,36 +231,7 @@ public class PokerPot {
               + ((k == 0) ? "main" : "side") + " pot! Their hand was a ");
           Card[] theHand = d.getBestHand(eligible.get(k).get(currBest.get(0)).getHand());
           Deck.sort(theHand);
-          switch (d.getRanking(theHand)) {
-            case 1:
-              System.out.print("STRAIGHT FLUSH: ");
-              break;
-            case 2:
-              System.out.print("FOUR of a KIND: ");
-              break;
-            case 3:
-              System.out.print("FULL HOUSE: ");
-              break;
-            case 4:
-              System.out.print("FLUSH");
-              break;
-            case 5:
-              System.out.print("STRAIGHT");
-              break;
-            case 6:
-              System.out.print("THREE of a KIND");
-              break;
-            case 7:
-              System.out.print("TWO PAIR");
-              break;
-            case 8:
-              System.out.print("ONE PAIR");
-              break;
-            case 9:
-              System.out.print("HIGH Card");
-              break;
-          }
-          System.out.print(": ");
+          System.out.print(getRankingString(d.getRanking(theHand)) + ": ");
           for (int f = 0; f < 5; f++)
             System.out.print(theHand[f].getValue() + ((f == 4) ? "\n\n" : "  - "));
           if (eligible.get(k).get(currBest.get(0)) == mainPlayer) {
@@ -286,5 +257,20 @@ public class PokerPot {
       }
     }
     return stats;
+  }
+
+  private String getRankingString(int rank) {
+    switch (rank) {
+      case 1: return "STRAIGHT FLUSH";
+      case 2: return "FOUR of a KIND";
+      case 3: return "FULL HOUSE";
+      case 4: return "FLUSH";
+      case 5: return "STRAIGHT";
+      case 6: return "THREE of a KIND";
+      case 7: return "TWO PAIR";
+      case 8: return "ONE PAIR";
+      case 9: return "HIGH Card";
+      default: return "";
+    }
   }
 }
