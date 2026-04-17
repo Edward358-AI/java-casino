@@ -367,7 +367,8 @@ class PokerGame {
     for (int i = players.length - 1; i > 0; i--)
       players[i] = players[i - 1];
     players[0] = first;
-    if (hands >= players.length) {
+    int handsPerRound = (players.length <= 8) ? (players.length * 3) : (players.length * 2);
+    if (hands >= handsPerRound) {
       if (blinds < 320) {
         blinds *= 2;
       } else {
