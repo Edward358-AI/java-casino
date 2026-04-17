@@ -371,6 +371,7 @@ class PokerGame {
     if (hands >= handsPerRound) {
       if (blinds < 320) {
         blinds *= 2;
+        System.out.println("Blinds increasing to ✨" + blinds);
       } else {
         System.out.println("Round finished");
       }
