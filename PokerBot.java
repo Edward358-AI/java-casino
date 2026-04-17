@@ -9,9 +9,9 @@ public class PokerBot extends PokerPlayer {
       { 6, 6 }, { 5, 5 }, { 4, 4 }, { 3, 3 }, { 2, 2 } }; // preset hands for smart bot
   private boolean dumb; // dumb is basically if the bot should js do random stuff or have some decency
 
-  public PokerBot() {
+  public PokerBot(PokerPlayer[] currentPlayers) {
     super("temp");
-    randomName();
+    randomName(currentPlayers);
     dumb = true;
     if (Math.random() > 0.5)
       dumb = false;
@@ -20,8 +20,16 @@ public class PokerBot extends PokerPlayer {
     }
   }
 
+  public PokerBot() {
+    this(null);
+  }
+
+  public void randomName(PokerPlayer[] currentPlayers) {
+    super.setName(Names.getUniqueName(currentPlayers));
+  }
+
   public void randomName() {
-    super.setName(Names.getName());
+    randomName(null);
   }
 
   // funny
@@ -328,17 +336,28 @@ public class PokerBot extends PokerPlayer {
 }
 
 class Names { // avoid dupe names
-  private static ArrayList<String> names = new ArrayList<String>(
-      Arrays.asList(new String[] { "Bob", "Rob", "Alice", "Aaron", "Sam", "Eddie", "Rachel", "Mike", "Charlie", "Ellie",
+  private static final String[] names = new String[] { "Bob", "Rob", "Alice", "Aaron", "Sam", "Eddie", "Rachel", "Mike", "Charlie", "Ellie",
           "Colin", "Kevin", "Victor", "Robin", "Jean", "Katheryne", "Dan", "Mark", "Richard", "Dana", "Elena", "Joe",
           "Juan", "Tony", "Ella", "Sammy", "Edward", "Ethan", "Jonathan", "Jason", "Evelyn", "Josie", "Sophia", "Bryan",
           "Allen", "Alan", "Kim", "Chloe", "Claire", "Jerry", "Toby", "Scarlet", "Alex", "Leon", "Eric",
           "GuyWhoGoesAllInEveryTime", "Fei Yu-Ching", "Jay", "Daniel", "Evan", "Sean", "Selene", "James", "Jacques",
           "NoName", "Zoe", "Sarah", "Kyle", "Irene", "Sharolyn", "Ben", "Coco", "Cindy", "Megan", "Mia", "E10WINS",
           "Audrey", "Emily", "March 7th", "Stelle", "Cao Cao", "Liu", "Camellia", "Cameron", "Maddie", "Will", "Amy",
-          "Kelly", "Aventurine" }));
+          "Kelly", "Aventurine" };
 
-  public static String getName() {
-    return names.remove((int) (Math.random() * names.size()));
+  public static String getUniqueName(PokerPlayer[] currentPlayers) {
+    while (true) {
+      String candidate = names[(int) (Math.random() * names.length)];
+      boolean used = false;
+      if (currentPlayers != null) {
+        for (PokerPlayer p : currentPlayers) {
+          if (p != null && candidate.equals(p.getName())) {
+            used = true;
+            break;
+          }
+        }
+      }
+      if (!used) return candidate;
+    }
   }
 }

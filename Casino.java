@@ -63,7 +63,7 @@ public class Casino { // will operate blackjack/poker games
           ps[i].addChips(pChips);
         }
         for (int i = realPlayers; i < totalPlayers; i++)
-          ps[i] = new PokerBot();
+          ps[i] = new PokerBot(ps);
         p = new PokerGame(ps);
         p.init();
         poker.merge(p.getStats());

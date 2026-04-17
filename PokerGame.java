@@ -382,7 +382,7 @@ class PokerGame {
         players[i].setInHand(true);
       else if (players[i] != mainPlayer) {
         String ogName = players[i].getName();
-        players[i] = new PokerBot();
+        players[i] = new PokerBot(players);
         System.out.println(
             ogName + " has run out of primogems ✨, they have been replaced by newcomer " + players[i].getName());
       } else
@@ -415,7 +415,7 @@ class PokerGame {
         PokerPlayer[] newPlayers = new PokerPlayer[players.length + 1];
         for (int k = 0; k < players.length; k++)
           newPlayers[k] = players[k];
-        PokerBot newBot = new PokerBot();
+        PokerBot newBot = new PokerBot(players);
         newPlayers[players.length] = newBot;
         players = newPlayers;
         System.out.println("A new player has joined the table: " + newBot.getName() + "!");

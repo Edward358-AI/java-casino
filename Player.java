@@ -9,7 +9,7 @@ public class Player {
     if (name.length() > 0)
       this.name = name.substring(0,1).toUpperCase() + name.substring(1);
     else
-      this.name = Names.getName();
+      this.name = Names.getUniqueName(null);
     chips = 1000;
     in = true;
   }
