@@ -404,10 +404,17 @@ class PokerGame {
       boolean tryRemove = Math.random() < 0.5;
       if (tryRemove && players.length > 6) {
         // Find all bot indices eligible to leave
+        int godBotCount = 0;
+        for (PokerPlayer p : players) {
+          if (p instanceof PokerBot && ((PokerBot) p).getBotLevel() == 2)
+            godBotCount++;
+        }
         ArrayList<Integer> botIndices = new ArrayList<>();
         for (int k = 0; k < players.length; k++) {
-          if (players[k] instanceof PokerBot)
-            botIndices.add(k);
+          if (players[k] instanceof PokerBot) {
+            if (godBotCount > 1 || ((PokerBot) players[k]).getBotLevel() != 2)
+              botIndices.add(k);
+          }
         }
         if (!botIndices.isEmpty()) {
           int removeIdx = botIndices.get((int) (Math.random() * botIndices.size()));

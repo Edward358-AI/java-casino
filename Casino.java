@@ -64,6 +64,24 @@ public class Casino { // will operate blackjack/poker games
         }
         for (int i = realPlayers; i < totalPlayers; i++)
           ps[i] = new PokerBot(ps);
+        
+        // Ensure at least one God Bot (Level 2) spawns initially
+        boolean godSpawned = false;
+        for (PokerPlayer player : ps) {
+          if (player instanceof PokerBot && ((PokerBot)player).getBotLevel() == 2) {
+            godSpawned = true;
+            break;
+          }
+        }
+        if (!godSpawned) {
+          for (PokerPlayer player : ps) {
+            if (player instanceof PokerBot) {
+              ((PokerBot)player).setBotLevel(2);
+              break;
+            }
+          }
+        }
+
         p = new PokerGame(ps);
         p.init();
         poker.merge(p.getStats());

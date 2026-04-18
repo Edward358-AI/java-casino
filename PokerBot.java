@@ -37,6 +37,14 @@ public class PokerBot extends PokerPlayer {
     randomName(null);
   }
 
+  public int getBotLevel() {
+    return botLevel;
+  }
+
+  public void setBotLevel(int level) {
+    this.botLevel = level;
+  }
+
   // funny
   public void checkName() {
     if (super.getName().equals("Aventurine")) {
@@ -45,6 +53,14 @@ public class PokerBot extends PokerPlayer {
   }
 
   public int[] action(String round, int prevBet, int bet, int blind, Card[] board, int potSize, PokerPlayer[] players, int seatIndex, int preflopAggressorIndex) {
+    int tablePlayers = 0;
+    for (PokerPlayer p : players) if (p.getChips() > 0) tablePlayers++;
+    boolean headsUpTable = (tablePlayers == 2);
+    
+    int activeCount = 0;
+    for (PokerPlayer p : players) if (p.inHand()) activeCount++;
+    boolean headsUpHand = (activeCount == 2);
+
     if (botLevel == 2) {
       if (round.equals("preflop")) {
         return godPreflop(prevBet, bet, blind, players, seatIndex);
@@ -101,8 +117,8 @@ public class PokerBot extends PokerPlayer {
           action[1] = super.getChips();
         }
       } else {
-        // Dumb Bot Extinction Rule: 35% Call, 65% Fold
-        if (Math.random() < 0.35) {
+        // Dumb Bot Extinction Rule: 50% Call, 50% Fold
+        if (Math.random() < 0.5) {
           action[0] = 4;
           action[1] = super.getChips();
         } else {
@@ -150,7 +166,11 @@ public class PokerBot extends PokerPlayer {
           }
         }
         if (!isHand) {
-          if (bet < super.getChips() / 2 && Math.random() < 0.25) {
+          double callAirFreq = (headsUpTable) ? 0.70 : 0.25;
+          int[] cardInts = Deck.cardToInt(super.getHand());
+          if (headsUpTable && (cardInts[0] >= 12 || cardInts[1] >= 12)) callAirFreq = 1.0; // Play any Q+ preflop 1v1
+
+          if (bet < super.getChips() / 2 && Math.random() < callAirFreq) {
             action[0] = 1;
             action[1] = (bet == 0) ? 0 : bet - prevBet;
           } else {
@@ -234,15 +254,18 @@ public class PokerBot extends PokerPlayer {
               if (draw[0] || draw[1]) {
                  if (Math.random() < 0.50) subAction = 0; else subAction = 4; // Gamble on draws 50%
               } else {
-                 if (rand <= 30) {
-                   subAction = 0;
-                 } else if (rand > 30 && rand <= 45) {
-                   subAction = 1;
-                 } else if (rand > 45 && rand <= 50) {
-                   subAction = 2;
-                 } else {
-                   subAction = 4;
-                 }
+                  double foldRate = (headsUpHand) ? 0.25 : 0.50; // Reduce panic fold 1v1
+                  if (rand <= 30) {
+                    subAction = 0;
+                  } else if (rand > 30 && rand <= 45) {
+                    subAction = 1;
+                  } else if (rand > 45 && rand <= 50) {
+                    subAction = 2;
+                  } else if (Math.random() < (1.0 - foldRate)) {
+                    subAction = 0; // Call instead of fold
+                  } else {
+                    subAction = 4;
+                  }
               }
             }
           } else {
@@ -326,9 +349,14 @@ public class PokerBot extends PokerPlayer {
     boolean unraised = (bet == blind || bet == 0);
     
     boolean chipleader = true;
+    int tablePlayers = 0;
     for (PokerPlayer p : players) {
-      if (p.inHand() && p != this && p.getChips() > super.getChips()) chipleader = false;
+      if (p.getChips() > 0) {
+          tablePlayers++;
+          if (p != this && p.getChips() > super.getChips()) chipleader = false;
+      }
     }
+    boolean headsUpTable = (tablePlayers == 2);
     boolean shortStacks = true;
     for (PokerPlayer p : players) {
       if (p.inHand() && p != this && p.getChips() > blind * 20) shortStacks = false;
@@ -336,6 +364,11 @@ public class PokerBot extends PokerPlayer {
     
     boolean stealRange = paired || numhand[1] >= 14 || (suited && numhand[1] - numhand[0] <= 4);
     boolean earlyRange = premium || (paired && numhand[0] >= 8);
+    
+    // Heads-Up Tournament Protocol: Any Ace, King, Queen or Pair becomes Premium
+    if (headsUpTable) {
+        if (numhand[1] >= 12 || paired) premium = true;
+    }
 
     if (premium || (chipleader && shortStacks && stealRange)) {
       if (bet > blind) {
@@ -358,9 +391,12 @@ public class PokerBot extends PokerPlayer {
     } else if (earlyPos && earlyRange) {
       action[0] = 3; action[1] = Math.min(blind * 3, super.getChips());
     } else {
-      action[0] = 2; // fold
-      action[1] = 0;
-      if (bet == 0) { action[0] = 1; action[1] = 0; }
+      if (headsUpTable) {
+          action[0] = 3; action[1] = Math.max(bet * 3, blind * 3);
+      } else {
+          action[0] = 2; action[1] = 0;
+          if (bet == 0) { action[0] = 1; action[1] = 0; }
+      }
     }
     
     if (action[1] >= super.getChips()) { action[0] = 4; action[1] = super.getChips(); }
@@ -455,24 +491,35 @@ public class PokerBot extends PokerPlayer {
     int dumbBotCount = 0;
     int godBotCount = 0;
     int largestSmartStack = 0;
+    int largestDumbStack = 0;
+    int largestOpponentStack = 0;
+    int activeCount = 0;
     for (PokerPlayer pr : players) {
-      if (pr.inHand() && pr != this && pr instanceof PokerBot) {
-         try {
-           java.lang.reflect.Field f = PokerBot.class.getDeclaredField("botLevel");
-           f.setAccessible(true);
-           int level = (int) f.get(pr);
-           if (level == 1) { smartBotCount++; if (pr.getChips() > largestSmartStack) largestSmartStack = pr.getChips(); }
-           else if (level == 0) dumbBotCount++;
-           else if (level == 2) godBotCount++;
-         } catch (Exception e) {}
+      if (pr.inHand()) activeCount++;
+      if (pr.inHand() && pr != this) {
+         if (pr.getChips() > largestOpponentStack) largestOpponentStack = pr.getChips();
+         if (pr instanceof PokerBot) {
+            try {
+              java.lang.reflect.Field f = PokerBot.class.getDeclaredField("botLevel");
+              f.setAccessible(true);
+              int level = (int) f.get(pr);
+              if (level == 1) { smartBotCount++; if (pr.getChips() > largestSmartStack) largestSmartStack = pr.getChips(); }
+              else if (level == 0) { dumbBotCount++; if (pr.getChips() > largestDumbStack) largestDumbStack = pr.getChips(); }
+              else if (level == 2) godBotCount++;
+            } catch (Exception e) {}
+         }
       }
     }
+    boolean headsUpHand = (activeCount == 2);
+    double depthRatio = (largestOpponentStack > 0) ? (double) super.getChips() / largestOpponentStack : 1.0;
+    boolean predatoryMode = (headsUpHand && dumbBotCount > 0);
     boolean exploitingSmartBot = (smartBotCount > 0 && dumbBotCount == 0); 
-    double bluffSizeVsSmart = (largestSmartStack > 0) ? (largestSmartStack * 0.85) : potSize;
+    boolean minusOneActive = false;
+    double bluffSizeVsSmart = (largestSmartStack > 0) ? (largestSmartStack * 0.5) + 1 : potSize;
 
-    // Heuristic Sizing Scanner (Soul Reading)
+    // Heuristic Sizing Scanner (Soul Reading) - Restricted to Multi-Player Hands
     boolean soulReadSmartBot = false;
-    if (!zeroBet && smartBotCount > 0) {
+    if (!zeroBet && smartBotCount > 0 && !headsUpHand) {
        double baseBet = (prevBet > 0) ? prevBet : blind;
        if (bet >= baseBet * 2.6) soulReadSmartBot = true;
     }
@@ -489,12 +536,18 @@ public class PokerBot extends PokerPlayer {
          if (zeroBet) act = 1; else act = 2;
       }
     } else if (myRank <= 3) { 
-      if (dumbBotCount > 0) {
-          act = 3; actAmount = Math.max(potSize, super.getChips()); // GREED PROTOCOL
+      if (dumbBotCount > 0 && largestDumbStack > 0) {
+          act = 3; actAmount = Math.max(potSize, largestDumbStack - 1); // MINUS ONE EXPLOIT
+          minusOneActive = true;
       } else {
-          if (zeroBet) { act = 3; actAmount = (int)(potSize * 0.75); } 
+          double valueMult = (depthRatio > 1.5) ? 1.0 : 0.75; // Big Stack Bully widening
+          if (zeroBet) { act = 3; actAmount = (int)(potSize * valueMult); } 
           else { act = 3; actAmount = bet * 3; }
       }
+    } else if (myRank <= (headsUpHand ? 8 : 7) && dumbBotCount > 0 && !draws[0] && !draws[1]) {
+      // Hyper-Thin Value Betting vs Dumb Bots (Isolated 1v1 expands threshold to Any Pair)
+      if (zeroBet) { act = 3; actAmount = potSize; }
+      else { act = 3; actAmount = Math.max(potSize, bet * 2); }
     } else if (myRank <= 5) { 
       if (zeroBet) { act = 3; actAmount = (int)(potSize * 0.5); }
       else { 
@@ -504,12 +557,20 @@ public class PokerBot extends PokerPlayer {
     } else if (myRank <= 7 || draws[0] || draws[1]) { 
       // Elite Range Advantage: Ace-high boards C-bet 90% of the time
       double cbetFreq = (aceHighBoard) ? 0.90 : 0.65;
-      if (dumbBotCount > 0) cbetFreq = 0.20; // Respect calling stations, save chips
+      double barrelFreq = 0.70;
+      
+      // Dynamic Stack-Depth Aggression Scaling
+      if (depthRatio > 1.5) { cbetFreq = Math.min(1.0, cbetFreq + 0.15); barrelFreq = Math.min(1.0, barrelFreq + 0.15); }
+      else if (depthRatio <= 0.5 && !predatoryMode) { cbetFreq = 0.0; barrelFreq = 0.0; } // Survival mode (disabled in predatory)
+      
+      if (dumbBotCount > 0) {
+          cbetFreq = (headsUpHand) ? 0.60 : 0.0; // PREDATORY BLUFFING 1v1 vs Dumb Bots
+      }
 
       if (zeroBet && cbet && Math.random() < cbetFreq) {
          act = 3; actAmount = (int)(Math.max(potSize * 0.4, blind));
          if (board.length == 3) cbetFlop = true;
-      } else if (board.length == 4 && cbetFlop && board[3].getNum() >= 11 && Math.random() < 0.70) {
+      } else if (board.length == 4 && cbetFlop && board[3].getNum() >= 11 && Math.random() < barrelFreq) {
          // Triple Barreling: Turn is a face card and we C-bet flop
          act = 3; actAmount = (int)(potSize * 0.6);
       } else if (!zeroBet && (draws[0] || draws[1]) && equity > potOdds) {
@@ -517,11 +578,23 @@ public class PokerBot extends PokerPlayer {
       } else if (!zeroBet && costToCall <= super.getChips() * 0.20 && costToCall > 0) { 
          act = 1; actAmount = bet - prevBet;
       } else {
-         if (zeroBet) act = 1; else act = 2;
+         double huFoldChance = (headsUpHand) ? 0.25 : 0.85; // Intelligent Stickiness 1v1
+         if (zeroBet) act = 1; 
+         else if (headsUpHand && Math.random() > huFoldChance) { act = 1; actAmount = bet - prevBet; }
+         else act = 2;
       }
+    } else if (predatoryMode && myRank <= 10) {
+       // Ultra-Thin Value: Betting Ace-High against Dumb Bots 1v1
+       if (zeroBet) { act = 3; actAmount = (int)(potSize * 0.5); }
+       else { act = 1; actAmount = bet - prevBet; }
     } else { 
       double cbetFreq = (aceHighBoard) ? 0.90 : 0.65;
-      if (dumbBotCount > 0) cbetFreq = 0.20;
+      
+      // Dynamic Stack-Depth Aggression Scaling
+      if (depthRatio > 1.5) { cbetFreq = Math.min(1.0, cbetFreq + 0.15); }
+      else if (depthRatio <= 0.5 && !predatoryMode) { cbetFreq = 0.0; } // Survival mode (disabled in predatory)
+      
+      if (dumbBotCount > 0) cbetFreq = (headsUpHand) ? 0.60 : 0.0; // PREDATORY BLUFFING 1v1 vs Dumb Bots
 
       if (zeroBet && cbet && Math.random() < cbetFreq) {
          act = 3; actAmount = (int)(Math.max(potSize * 0.4, blind)); 
@@ -540,15 +613,19 @@ public class PokerBot extends PokerPlayer {
        actAmount = (int)(potSize * (1.5 + Math.random()));
     }
     
-    if (dumbBotCount > 0 && act == 3 && myRank > 5) act = 1; // Don't bluff calling stations
+    if (dumbBotCount > 0 && act == 3 && myRank > 7 && !headsUpHand) act = 1; // Only eradicate bluffs in multi-player pots
     if (act == 3 && actAmount <= bet) actAmount = bet * 2 + blind; // Ensure legal raise
     if (act == 3 && actAmount == 0) actAmount = blind;
     
-    if (act == 3 && actAmount >= super.getChips() * 0.9) { act = 4; } 
+    if (act == 3 && actAmount >= super.getChips() * 0.9 && !minusOneActive) { act = 4; } 
+
+    // NUCLEAR PREDATOR OVERRIDE: 1v1 against fish, NEVER fold top-pair+
+    if (predatoryMode && act == 2 && myRank <= 8) act = 1; 
+
     if (act == 4) { action[0] = 4; action[1] = super.getChips(); }
     else if (act == 3) { action[0] = 3; action[1] = actAmount; }
     else if (act == 2) { action[0] = zeroBet ? 1 : 2; action[1] = 0; }
-    else { action[0] = 1; action[1] = zeroBet ? 0 : bet - prevBet; }
+    else { action[0] = 1; action[1] = zeroBet ? 0 : bet; } // Standardized to 'bet' (total) 1v1
     
     if (action[1] >= super.getChips()) { action[0] = 4; action[1] = super.getChips(); }
     return action;
