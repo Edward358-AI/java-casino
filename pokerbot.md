@@ -114,8 +114,8 @@ The God Bot dominates the Smart Bot by treating its code as an "Open Book." It i
 *   **Draw-Chase Taxation**: The God Bot identifies when a board has flush/straight possibilities. It knows the Smart Bot will chase any draw with a 50% frequency regardless of price. The God Bot intentionally over-bets these boards, charging the Smart Bot a massive "Math Tax" that drains its stack over time.
 
 ### 2. 🔴 God Bot vs. 🟢 Dumb Bot (99.9% Dominance)
-In this matchup, the God Bot abandons GTO safety and switches to **"Predatory Exploitation"** via two core hacks:
-*   **Nuclear Overlord Protocol**: The God Bot executes 100% VPIP and 100% C-Bet frequency. It knows the Dumb Bot will fold "Air" 25% of the time on every street. By betting every single hand, the God Bot steals all "Dead Money" before a showdown even occurs.
+In this matchup, the God Bot abandons GTO safety and switches to **"Predatory Exploitation"** once isolated:
+*   **Predatory Bluffing (1v1 Only)**: When heads-up against a Dumb Bot, the God Bot spikes its C-bet frequency to **60%** (up from **0%** in multi-way pots). It knows the Dumb Bot folds "Air" enough to make this profitable in isolation, but it maintains **0% bluffs** in multi-way pots to avoid bleeding chips to calling stations.
 *   **The "Minus One" Exploit**: The God Bot bypasses the Dumb Bot's 50% all-in fold logic. It prices its value-bets to exactly `Opponent_Stack - 1`. This forces the Dumb Bot into its 75% "Flat Call" loop, ensuring the God Bot extracts 99.9% of the stack without ever triggering a coin-flip fold.
 
 ### 3. 🔵 Smart Bot vs. 🟢 Dumb Bot (97% Dominance)
