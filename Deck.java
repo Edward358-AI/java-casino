@@ -41,6 +41,7 @@ public class Deck { // deck of Cards
   public void reset() { // resets the deck, adds any dealt Cards back
     deck.addAll(removed);
     removed = new ArrayList<Card>();
+    shuffle();
   }
 
   public static void sort(Card[] d) { // utility sort function that sorts an array of Cards

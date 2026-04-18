@@ -20,6 +20,11 @@ public class Player {
   public int getChips() {
     return chips;
   }
+  
+  public void setChips(int chips) {
+    this.chips = chips;
+  }
+
   public String getName() {
     return name;
   }
@@ -47,11 +52,14 @@ public class Player {
   }
 
   public static int getValidInt(String message, int min, int max) { 
-    Utils.flushInput();
-    return getValidInt(message, min, max, false);
+    return getValidInt(message, min, max, false, false);
   }
 
-  public static int getValidInt(String message, int min, int max, boolean allowBack) { // continuously prompt user for valid int given range and message to keep prompting with
+  public static int getValidInt(String message, int min, int max, boolean allowBack) {
+    return getValidInt(message, min, max, allowBack, false);
+  }
+
+  public static int getValidInt(String message, int min, int max, boolean allowBack, boolean lastManStanding) { // continuously prompt user for valid int given range and message to keep prompting with
     int x;
     if (!allowBack) Utils.flushInput();
     while (true) {
@@ -60,6 +68,10 @@ public class Player {
         String z = sc.nextLine().trim();
         if (z.toLowerCase().trim().equals("q")) System.exit(0);
         if (allowBack && z.toLowerCase().trim().equals("b")) return -1;
+        if (z.isEmpty() || !z.matches("-?\\d+")) {
+          if (lastManStanding) return 0;
+          throw new NumberFormatException();
+        }
         x = Integer.parseInt(z);
         if (x >= min && x <= max) break;
         else System.out.print("Not within specified bounds! ");

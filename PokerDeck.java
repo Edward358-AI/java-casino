@@ -11,6 +11,10 @@ class PokerDeck extends Deck { // a deck specifically designed to facilitate a g
   public Card[] getBoard() {
     return board.clone();
   }
+  
+  public void setBoard(Card[] board) {
+    this.board = board;
+  }
 
   public void reset() { // resets for new hand
     super.reset();
@@ -94,6 +98,10 @@ class PokerDeck extends Deck { // a deck specifically designed to facilitate a g
         if (hand[i].getValue().charAt(1) != hand[i - 1].getValue().charAt(1))
           flush = false;
       }
+      // Special logic for the "Wheel" straight (A-2-3-4-5)
+      boolean wheel = (numhand[0] == 2 && numhand[1] == 3 && numhand[2] == 4 && numhand[3] == 5 && numhand[4] == 14);
+      if (wheel) straight = true;
+
       rank = (flush && straight) ? 1 : ((flush || straight) ? ((flush) ? 4 : 5) : 9);
     }
     return rank;
@@ -254,6 +262,13 @@ class PokerDeck extends Deck { // a deck specifically designed to facilitate a g
               }
             }
         } else { // compares any non pair/set related hands, like flushes, straights, straight flush, high card
+          // Special Case: Wheel Straight check (A-2-3-4-5) - Treat Ace (14) as 1 for ranking
+          boolean wheel1 = (num1[0] == 2 && num1[1] == 3 && num1[2] == 4 && num1[3] == 5 && num1[4] == 14);
+          boolean wheel2 = (num2[0] == 2 && num2[1] == 3 && num2[2] == 4 && num2[3] == 5 && num2[4] == 14);
+          
+          if (wheel1 && !wheel2) return (H2 == 5 || H2 == 1) ? 2 : 1; // Any other straight beats a wheel
+          if (wheel2 && !wheel1) return (H1 == 5 || H1 == 1) ? 1 : 2;
+
           int r = 0;
           for (int i = 4; i >= 0; i--) {
             if (num1[i] > num2[i]) {

@@ -41,8 +41,10 @@ public class PokerPot {
     maxBet = 0;
   }
 
-  public void addPlayerContribution(int i, int amount) {
-    contributions[i] += p[i].removeChips(amount);
+  public int addPlayerContribution(int i, int amount) {
+    int paid = p[i].removeChips(amount);
+    contributions[i] += paid;
+    return paid;
   }
 
   public int[] getContributions() {
@@ -69,7 +71,7 @@ public class PokerPot {
    * eh laziness exists and it required a lot of effort to make the below code
    * work in the first place lol
    */
-  private void updatePot() {
+  public void updatePot() {
     pots.clear();
     eligible.clear();
     pots.add(0);

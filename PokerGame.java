@@ -156,7 +156,7 @@ class PokerGame {
           PokerBot temp = (PokerBot) players[i];
           int livePot = pot.getTotalPot();
           for(int c : currConts) livePot += c;
-          currAction = temp.action("preflop", currConts[i], currBet, blinds, lastRaise, null, livePot, players, i, preflopAggressorIndex);
+          currAction = temp.action("preflop", currConts[i], currBet, blinds, lastRaise, null, livePot, players, i, preflopAggressorIndex, 0, 1);
         } else {
           System.out.println("Are you " + players[i].getName() + "? Press Enter to confirm and show your hand...");
           Utils.flushInput();
@@ -284,7 +284,7 @@ class PokerGame {
             PokerBot temp = (PokerBot) players[i];
             int livePot = pot.getTotalPot();
             for(int c : currConts) livePot += c;
-            currAction = temp.action("postflop", currConts[i], currBet, blinds, lastRaise, boardForBot.toArray(new Card[j + 3]), livePot, players, i, preflopAggressorIndex);
+            currAction = temp.action("postflop", currConts[i], currBet, blinds, lastRaise, boardForBot.toArray(new Card[j + 3]), livePot, players, i, preflopAggressorIndex, 0, 1);
           } else {
             System.out.println("Are you " + players[i].getName() + "? Press Enter to confirm and show your hand...");
             Utils.flushInput();
@@ -461,68 +461,53 @@ class PokerGame {
 
   private String handleAction(int i) { // do certain things based on a player's action
     String log = "";
+    int paid = 0;
+    
     switch (currAction[0]) {
-      case 1:
-        if (players[i] == mainPlayer)
-          mp.addBet(currAction[1]);
-        pot.addPlayerContribution(i, currAction[1]);
-        currConts[i] += currAction[1];
+      case 1: // CALL/CHECK
+        paid = pot.addPlayerContribution(i, currAction[1]);
+        currConts[i] += paid;
+        if (players[i] == mainPlayer) mp.addBet(paid);
+        
         if (players[i].status() == 2) {
-          if (currAction[1] != 0)
-            log = players[i].getName() + " in big blind CALLS FOR ✨" + currBet + ".";
-          else
-            log = players[i].getName() + " in big blind CHECKS.";
+          if (paid > 0 || currBet > 0) log = players[i].getName() + " in big blind CALLS FOR ✨" + currConts[i] + ".";
+          else log = players[i].getName() + " in big blind CHECKS.";
         } else {
-          if (currAction[1] != 0)
-            log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
-                + "CALLS FOR ✨" + currBet + ".";
-          else
-            log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
-                + "CHECKS.";
+          if (paid > 0 || currBet > 0) log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "CALLS FOR ✨" + currConts[i] + ".";
+          else log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "CHECKS.";
         }
         break;
-      case 2:
-        players[i].setInHand(false);
-        if (players[i].status() == 2)
-          log = players[i].getName() + " in big blind FOLDS.";
-        else
-          log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "FOLDS.";
-        break;
-      default:
-        if (players[i] == mainPlayer && currAction[0] == 4)
-          mp.allIn();
-        if (players[i] == mainPlayer)
-          mp.addBet(currAction[1]);
-        if (players[i].status() == 2)
-          log = players[i].getName() + " in big blind "
-              + ((currAction[0] == 4) ? "GOES ALL IN FOR" : ((currBet == 0) ? "BETS" : "RAISES TO"))
-              + " ✨" + (currConts[i] + currAction[1]) + ".";
-        else
-          log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ")
-              + ((currAction[0] == 4) ? "GOES ALL IN FOR" : ((currBet == 0) ? "BETS" : "RAISES TO")) + " ✨"
-              + (currConts[i] + currAction[1]) + ".";
-
-        pot.addPlayerContribution(i, currAction[1]);
-        currConts[i] += currAction[1];
         
-        // LEGAL ENFORCEMENT: Update lastRaise and check for illegal raises
+      case 2: // FOLD
+        players[i].setInHand(false);
+        if (players[i].status() == 2) log = players[i].getName() + " in big blind FOLDS.";
+        else log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "FOLDS.";
+        break;
+        
+      default: // BET/RAISE/ALL-IN
+        if (players[i] == mainPlayer && currAction[0] == 4) mp.allIn();
+        
+        // Actually move the chips
+        paid = pot.addPlayerContribution(i, currAction[1]);
+        currConts[i] += paid;
+        if (players[i] == mainPlayer) mp.addBet(paid);
+
+        // Determine action name for log
+        String actionVerb = (currAction[0] == 4) ? "GOES ALL IN FOR" : (currBet == 0 ? "BETS" : "RAISES TO");
+        
+        // Log based on ACTUAL contribution
+        log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : (players[i].status() == 2 ? " in big blind " : " "))
+            + actionVerb + " ✨" + currConts[i] + ".";
+
+        // Update table bet state
         if (currConts[i] > currBet) {
           int increment = currConts[i] - currBet;
-          if (increment < lastRaise && currAction[0] != 4) {
-             // AUTO-FIX: Force illegal raise up to the legal minimum
-             int minTarget = currBet + lastRaise;
-             int availableToAdd = players[i].getChips();
-             int addAmount = (minTarget - currConts[i]);
-             
-             if (addAmount > availableToAdd) addAmount = availableToAdd;
-             
-             pot.addPlayerContribution(i, addAmount);
-             currConts[i] += addAmount;
-             increment = (currConts[i] > currBet) ? (currConts[i] - currBet) : lastRaise;
+          // Only reopen betting (update lastPlayer) if it's a FULL raise
+          if (increment >= lastRaise) {
+              lastRaise = increment;
+              lastPlayer = i;
           }
-          lastRaise = (increment > 0) ? increment : lastRaise;
           currBet = currConts[i];
-          lastPlayer = i;
         }
         break;
     }

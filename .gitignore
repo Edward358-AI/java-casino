@@ -1,11 +1,6 @@
 *.class
-FullStreetSim.java
-MatchScanner.java
-FinalMatchups.java
-MatchScanner.class
-FullStreetSim.class
-FinalMatchups.class
-HegemonyAudit.java
-TournamentSim.java
-HegemonyAudit.class
-TournamentSim.class
+
+# Test files and dependencies
+/lib/
+/src/test/
+*.class

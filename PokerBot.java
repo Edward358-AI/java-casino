@@ -7,13 +7,14 @@ public class PokerBot extends PokerPlayer {
       { 13, 13 }, { 13, 12 }, { 13, 11 }, { 13, 10 }, { 13, 9 }, { 13, 8 }, { 12, 12 }, { 12, 11 }, { 12, 10 },
       { 12, 9 }, { 12, 8 }, { 11, 11 }, { 11, 10 }, { 11, 9 }, { 11, 8 }, { 10, 10 }, { 9, 9 }, { 8, 8 }, { 7, 7 },
       { 6, 6 }, { 5, 5 }, { 4, 4 }, { 3, 3 }, { 2, 2 } }; // preset hands for smart bot
-  private int botLevel; // 0 = dumb, 1 = smart, 2 = god
+  public int botLevel; // 0 = dumb, 1 = smart, 2 = god
   private boolean cbetFlop = false; // Persistent state for barrelling logic
   private boolean predatoryIntent = false; // "Two-Faced" nightmare personality
   private String baseName; // Store original name to allow tag refreshing
 
   private boolean revealTags = false; // Persistent memory for trigger detection
   private boolean nightmareActive = false; // Persistent memory for nightmare mode
+  private boolean protectedMode = false; // "Protected Mode": Strips exploits for pure GTO testing
 
   public PokerBot(PokerPlayer[] currentPlayers) {
     super("temp");
@@ -91,8 +92,14 @@ public class PokerBot extends PokerPlayer {
 
   public void setBotLevel(int level) {
     this.botLevel = level;
-    if (level == 2) predatoryIntent = (Math.random() < 0.5); // Re-roll intent for promoted gods
+    if (level == 2 && !protectedMode) predatoryIntent = (Math.random() < 0.5); // Re-roll intent for promoted gods (disable if protected)
     refreshNameTag(null); // Simple refresh (Nightmare mode handled in constructor or re-verified here if needed)
+  }
+
+  public void setProtectedMode(boolean val) {
+    this.protectedMode = val;
+    if (val) predatoryIntent = false; // Immediately disable aggression
+    refreshNameTag(null);
   }
 
   // funny
@@ -102,7 +109,9 @@ public class PokerBot extends PokerPlayer {
     }
   }
 
-  public int[] action(String round, int prevBet, int bet, int blind, int lastRaise, Card[] board, int potSize, PokerPlayer[] players, int seatIndex, int preflopAggressorIndex) {
+  public int[] action(String round, int prevBet, int bet, int blind, int lastRaise, Card[] board, int potSize, PokerPlayer[] players, int seatIndex, int preflopAggressorIndex, int sbIdx, int bbIdx) {
+    int numPlayers = players.length;
+
     int tablePlayers = 0;
     for (PokerPlayer p : players) if (p.getChips() > 0) tablePlayers++;
     boolean headsUpTable = (tablePlayers == 2);
@@ -113,9 +122,9 @@ public class PokerBot extends PokerPlayer {
 
     if (botLevel == 2) {
       if (round.equals("preflop")) {
-        return godPreflop(prevBet, bet, blind, lastRaise, players, seatIndex);
+        return godPreflop(prevBet, bet, blind, lastRaise, players, seatIndex, sbIdx, bbIdx);
       } else {
-        return godPostflop(prevBet, bet, blind, lastRaise, board, potSize, players, seatIndex, preflopAggressorIndex);
+        return godPostflop(prevBet, bet, blind, lastRaise, board, potSize, players, seatIndex, preflopAggressorIndex, sbIdx, bbIdx);
       }
     } else if (botLevel == 0) { // idiot bot code, fixed percentages for all situations no matter what
       int[] action = new int[2];
@@ -181,7 +190,6 @@ public class PokerBot extends PokerPlayer {
       int[] action = new int[2];
       if (round.equals("preflop")) {
         /*
-         * if hand is in the range, plays it only if bet is lower than half of current
          * stack, otherwise, has a 80% chance to call and 20% chance of folding.
          * for the former, 20% chance to raise, 80% chance to call.
          * if hand is out of range, has a 25% chance to call and 75% chance of folding.
@@ -202,7 +210,6 @@ public class PokerBot extends PokerPlayer {
                   action[1] = (bet >= super.getChips()) ? super.getChips() : bet - prevBet;
                 } else
                   action[1] = (bet == 0) ? 0 : bet - prevBet;
-
               }
             } else {
               if (Math.random() < 0.8) {
@@ -215,6 +222,7 @@ public class PokerBot extends PokerPlayer {
                 action[0] = 2;
               }
             }
+            break;
           }
         }
         if (!isHand) {
@@ -394,7 +402,10 @@ public class PokerBot extends PokerPlayer {
     }
   }
 
-  private int[] godPreflop(int prevBet, int bet, int blind, int lastRaise, PokerPlayer[] players, int seatIndex) {
+  private int[] godPreflop(int prevBet, int bet, int blind, int lastRaise, PokerPlayer[] players, int seatIndex, int sbIdx, int bbIdx) {
+    int numPlayers = players.length;
+    int relativePos = (seatIndex - sbIdx + numPlayers) % numPlayers;
+    
     int[] action = new int[2];
     int[] numhand = Deck.cardToInt(super.getHand());
     Arrays.sort(numhand);
@@ -402,9 +413,9 @@ public class PokerBot extends PokerPlayer {
     boolean suited = super.getHand()[0].getValue().charAt(1) == super.getHand()[1].getValue().charAt(1);
     boolean premium = (paired && numhand[0] >= 10) || (numhand[0] >= 13 && numhand[1] >= 13) || (numhand[1] == 14 && numhand[0] >= 11);
     
-    boolean earlyPos = (seatIndex >= 2 && seatIndex <= 3);
-    boolean latePos = (seatIndex >= players.length - 2);
-    boolean inBlinds = (seatIndex == 0 || seatIndex == 1);
+    boolean earlyPos = (relativePos >= 2 && relativePos <= 3);
+    boolean latePos = (relativePos >= numPlayers - 2);
+    boolean inBlinds = (seatIndex == sbIdx || seatIndex == bbIdx);
     boolean unraised = (bet == blind || bet == 0);
     
     boolean chipleader = true;
@@ -424,13 +435,9 @@ public class PokerBot extends PokerPlayer {
         if (p.inHand() && p != this && p.getChips() > blind * 20) shortStacks = false;
         
         if (p instanceof PokerBot && p != this) {
-          try {
-            java.lang.reflect.Field f = PokerBot.class.getDeclaredField("botLevel");
-            f.setAccessible(true);
-            int level = (int) f.get(p);
+            int level = ((PokerBot)p).botLevel;
             if (level == 0) dumbBotCount++;
             else if (level == 1) smartBotCount++;
-          } catch (Exception e) {}
         }
       }
     }
@@ -441,12 +448,12 @@ public class PokerBot extends PokerPlayer {
     boolean stealRange = paired || numhand[1] >= 14 || (suited && numhand[1] - numhand[0] <= 4);
     
     // GTO Hardening: Balanced Early Range (Matching Smart Bot + Suited Wheel Aces) - SPICY MODE ONLY
-    boolean wheelAce = isThinkingOpponentOnly && (suited && numhand[1] == 14 && numhand[0] >= 2 && numhand[0] <= 9);
-    boolean faceCards = isThinkingOpponentOnly && ((numhand[1] >= 13 && numhand[0] >= 10) || (numhand[1] == 12 && numhand[0] >= 11));
+    boolean wheelAce = !protectedMode && isThinkingOpponentOnly && (suited && numhand[1] == 14 && numhand[0] >= 2 && numhand[0] <= 9);
+    boolean faceCards = !protectedMode && isThinkingOpponentOnly && ((numhand[1] >= 13 && numhand[0] >= 10) || (numhand[1] == 12 && numhand[0] >= 11));
     boolean earlyRange = premium || paired || faceCards || wheelAce;
     
     // Mixed Strategy Anomaly (15%): Playing GTO Gappers/Trash from any position - SPICY MODE ONLY
-    boolean mixedStrategy = isThinkingOpponentOnly && (Math.random() < 0.15 && (suited && numhand[1] - numhand[0] <= 5));
+    boolean mixedStrategy = !protectedMode && isThinkingOpponentOnly && (Math.random() < 0.15 && (suited && numhand[1] - numhand[0] <= 5));
     
     // Heads-Up Tournament Protocol: Any Ace, King, Queen or Pair becomes Premium
     if (headsUpTable) {
@@ -461,7 +468,7 @@ public class PokerBot extends PokerPlayer {
       int intended = (bet > blind) ? (bet * 3) : (blind * 3);
       int raiseTo = Math.min(Math.max(intended, bet + lastRaise), super.getChips());
       action[1] = raiseTo - prevBet;
-    } else if (bet > blind && isThinkingOpponentOnly) {
+    } else if (bet > blind && isThinkingOpponentOnly && !protectedMode) {
       // SPICY MODE: Active Defense Logic
       double threeBetChance = 0.35; // 35% chance to re-raise bluffs
       
@@ -469,7 +476,7 @@ public class PokerBot extends PokerPlayer {
           action[0] = 3; 
           int raiseTo = Math.min(Math.max(bet * 3, bet + lastRaise), super.getChips());
           action[1] = raiseTo - prevBet;
-      } else if (seatIndex == 1 && bet <= blind * 4.5 && defenseRange) {
+      } else if (seatIndex == bbIdx && bet <= blind * 4.5 && defenseRange) {
           action[0] = 1; action[1] = bet - prevBet; // Big Blind Defense (Sticky Call)
       } else if (latePos && bet <= blind * 3.5 && (paired || wheelAce)) {
           action[0] = 1; action[1] = bet - prevBet; // Positional Flatting (Call in position)
@@ -501,7 +508,7 @@ public class PokerBot extends PokerPlayer {
       }
     }
     
-    if (action[0] == 3) {
+    if (action[0] == 3 && !protectedMode) {
       int noise = (int)(Math.random() * 11) - 5; // Humanoid Noise: +/- 5 chips
       int raiseTo = (prevBet + action[1]) + noise;
       // FINAL LEGAL GUARD: Ensure the noisy bet still respects the increment floor
@@ -515,7 +522,7 @@ public class PokerBot extends PokerPlayer {
     return action;
   }
 
-  private int[] godPostflop(int prevBet, int bet, int blind, int lastRaise, Card[] board, int potSize, PokerPlayer[] players, int seatIndex, int preflopAggressorIndex) {
+  private int[] godPostflop(int prevBet, int bet, int blind, int lastRaise, Card[] board, int potSize, PokerPlayer[] players, int seatIndex, int preflopAggressorIndex, int sbIdx, int bbIdx) {
     int[] action = new int[2];
     Card[] fullHand = new Card[5];
     if (board.length == 3) {
@@ -604,14 +611,10 @@ public class PokerBot extends PokerPlayer {
       if (pr.inHand() && pr != this) {
          if (pr.getChips() > largestOpponentStack) largestOpponentStack = pr.getChips();
          if (pr instanceof PokerBot) {
-            try {
-              java.lang.reflect.Field f = PokerBot.class.getDeclaredField("botLevel");
-              f.setAccessible(true);
-              int level = (int) f.get(pr);
-              if (level == 1) { smartBotCount++; if (pr.getChips() > largestSmartStack) largestSmartStack = pr.getChips(); }
-              else if (level == 0) { dumbBotCount++; if (pr.getChips() > largestDumbStack) largestDumbStack = pr.getChips(); }
-              else if (level == 2) godBotCount++;
-            } catch (Exception e) {}
+                int level = ((PokerBot)pr).botLevel;
+                if (level == 1) { smartBotCount++; if (pr.getChips() > largestSmartStack) largestSmartStack = pr.getChips(); }
+                else if (level == 0) { dumbBotCount++; if (pr.getChips() > largestDumbStack) largestDumbStack = pr.getChips(); }
+                else if (level == 2) godBotCount++;
          }
       }
     }
@@ -622,15 +625,15 @@ public class PokerBot extends PokerPlayer {
     for (PokerPlayer pr : players) if (pr != null && "edjiang1234".equalsIgnoreCase(pr.getName())) isNightmareMode = true;
 
     boolean isThinkingOpponentOnly = (dumbBotCount == 0 && smartBotCount == 0);
-    boolean isBeingBullied = (isThinkingOpponentOnly && depthRatio < 0.5);
-    boolean predatoryMode = (headsUpHand && (dumbBotCount > 0 || (isNightmareMode && predatoryIntent)));
-    boolean exploitingSmartBot = (smartBotCount > 0 && dumbBotCount == 0); 
+    boolean isBeingBullied = (isThinkingOpponentOnly && depthRatio < 0.5 && !protectedMode);
+    boolean predatoryMode = (headsUpHand && (dumbBotCount > 0 || (isNightmareMode && predatoryIntent)) && !protectedMode);
+    boolean exploitingSmartBot = (smartBotCount > 0 && dumbBotCount == 0 && !protectedMode); 
     boolean minusOneActive = false;
     double bluffSizeVsSmart = (largestSmartStack > 0) ? (largestSmartStack * 0.5) + 1 : potSize;
 
     // Heuristic Sizing Scanner (Soul Reading) - Restricted to Multi-Player Hands
     boolean soulReadSmartBot = false;
-    if (!zeroBet && smartBotCount > 0 && !headsUpHand) {
+    if (!zeroBet && smartBotCount > 0 && !headsUpHand && !protectedMode) {
        double baseBet = (prevBet > 0) ? prevBet : blind;
        if (bet >= baseBet * 2.6) soulReadSmartBot = true;
     }
@@ -652,9 +655,9 @@ public class PokerBot extends PokerPlayer {
       }
     } else if (myRank <= 3 || (isBeingBullied && myRank <= 8)) { 
       // Trapping Logic (Slow-play): 20% chance to check/call monster hands to bait bluffs - SPICY MODE ONLY
-      boolean trapMode = (isThinkingOpponentOnly && Math.random() < 0.20 && (board.length == 3 || board.length == 4));
+      boolean trapMode = (!protectedMode && isThinkingOpponentOnly && Math.random() < 0.20 && (board.length == 3 || board.length == 4));
       
-      if (dumbBotCount > 0 && largestDumbStack > 0) {
+      if (dumbBotCount > 0 && largestDumbStack > 0 && !protectedMode) {
           act = 3; actAmount = Math.max(potSize, largestDumbStack - 1); // MINUS ONE EXPLOIT
           minusOneActive = true;
       } else if (trapMode) {
@@ -664,7 +667,7 @@ public class PokerBot extends PokerPlayer {
           if (isBeingBullied && !zeroBet) {
              act = 1; actAmount = bet - prevBet;
           } else {
-             double valueMult = (depthRatio > 1.5) ? 1.0 : 0.75; // Big Stack Bully widening
+             double valueMult = (depthRatio > 1.5 && !protectedMode) ? 1.0 : 0.75; // Big Stack Bully widening (disable if protected)
              if (zeroBet) { act = 3; actAmount = (int)(potSize * valueMult); } 
              else { act = 3; actAmount = bet * 3; }
           }
@@ -740,7 +743,7 @@ public class PokerBot extends PokerPlayer {
     }
     
     // Meta-Bluffing Level 3: Overbetting to exploit other God Bots who respect math
-    if (godBotCount > 0 && dumbBotCount == 0 && Math.random() < 0.12 && act == 2) {
+    if (!protectedMode && godBotCount > 0 && dumbBotCount == 0 && Math.random() < 0.12 && act == 2) {
        act = 3;
        actAmount = (int)(potSize * (1.5 + Math.random()));
     }
@@ -757,8 +760,8 @@ public class PokerBot extends PokerPlayer {
     }
     
     if (dumbBotCount > 0 && act == 3 && myRank > 7 && !headsUpHand) act = 1; // Only eradicate bluffs in multi-player pots
-    if (act == 3 && actAmount <= bet) actAmount = bet + lastRaise; // Ensure legal raise (Official Increment Rule)
-    if (act == 3 && actAmount == 0) actAmount = lastRaise;
+    if (act == 3 && actAmount <= bet) actAmount = bet + Math.max(lastRaise, blind); // Ensure legal raise (Official Increment Rule)
+    if (act == 3 && actAmount == 0) actAmount = Math.max(lastRaise, blind);
     
     if (act == 3 && actAmount >= super.getChips() * 0.9 && !minusOneActive) { act = 4; } 
 
