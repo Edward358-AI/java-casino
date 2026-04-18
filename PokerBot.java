@@ -9,6 +9,7 @@ public class PokerBot extends PokerPlayer {
       { 6, 6 }, { 5, 5 }, { 4, 4 }, { 3, 3 }, { 2, 2 } }; // preset hands for smart bot
   private int botLevel; // 0 = dumb, 1 = smart, 2 = god
   private boolean cbetFlop = false; // Persistent state for barrelling logic
+  private boolean predatoryIntent = false; // "Two-Faced" nightmare personality
 
   public PokerBot(PokerPlayer[] currentPlayers) {
     super("temp");
@@ -20,6 +21,18 @@ public class PokerBot extends PokerPlayer {
       botLevel = 1;
     else
       botLevel = 2;
+
+    // Nightmare Mode Check: "edjiang1234"
+    if (currentPlayers != null) {
+      for (PokerPlayer p : currentPlayers) {
+        if (p != null && "edjiang1234".equalsIgnoreCase(p.getName())) {
+          botLevel = 2; // Force God Tier
+          predatoryIntent = (Math.random() < 0.5); // 50% chance to be "The Bully"
+          break;
+        }
+      }
+    }
+
     if (super.getName().equals("Aventurine")) {
       opMode = true;
     }
@@ -469,13 +482,7 @@ public class PokerBot extends PokerPlayer {
       }
     }
     
-    boolean pairedBoard = false;
-    for (int i = 0; i < board.length; i++) {
-      for (int k = i + 1; k < board.length; k++) {
-        if (board[i].getNum() == board[k].getNum()) pairedBoard = true;
-      }
-    }
-
+    
     boolean aceHighBoard = false;
     for (Card d : board) if (d.getNum() == 14) aceHighBoard = true;
     
@@ -512,7 +519,12 @@ public class PokerBot extends PokerPlayer {
     }
     boolean headsUpHand = (activeCount == 2);
     double depthRatio = (largestOpponentStack > 0) ? (double) super.getChips() / largestOpponentStack : 1.0;
-    boolean predatoryMode = (headsUpHand && dumbBotCount > 0);
+
+    // Nightmare Mode Dynamic Check
+    boolean isNightmareMode = false;
+    for (PokerPlayer pr : players) if (pr != null && "edjiang1234".equalsIgnoreCase(pr.getName())) isNightmareMode = true;
+
+    boolean predatoryMode = (headsUpHand && (dumbBotCount > 0 || (isNightmareMode && predatoryIntent)));
     boolean exploitingSmartBot = (smartBotCount > 0 && dumbBotCount == 0); 
     boolean minusOneActive = false;
     double bluffSizeVsSmart = (largestSmartStack > 0) ? (largestSmartStack * 0.5) + 1 : potSize;
