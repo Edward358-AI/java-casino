@@ -44,6 +44,7 @@ public class PokerBot extends PokerPlayer {
       }
     }
 
+    /* TESTING TAGS DISABLED - Reverting to Fog of War
     String tag = "";
     if (botLevel == 0) tag = " [D]";
     else if (botLevel == 1) tag = " [S]";
@@ -55,6 +56,8 @@ public class PokerBot extends PokerPlayer {
       }
     }
     super.setName(this.baseName + tag);
+    */
+    super.setName(this.baseName);
   }
 
   public PokerBot() {
@@ -392,19 +395,36 @@ public class PokerBot extends PokerPlayer {
     }
     boolean headsUpTable = (tablePlayers == 2);
     boolean shortStacks = true;
+    int dumbBotCount = 0;
+    int smartBotCount = 0;
     for (PokerPlayer p : players) {
-      if (p.inHand() && p != this && p.getChips() > blind * 20) shortStacks = false;
+      if (p.getChips() > 0) {
+        if (p.inHand() && p != this && p.getChips() > blind * 20) shortStacks = false;
+        
+        if (p instanceof PokerBot && p != this) {
+          try {
+            java.lang.reflect.Field f = PokerBot.class.getDeclaredField("botLevel");
+            f.setAccessible(true);
+            int level = (int) f.get(p);
+            if (level == 0) dumbBotCount++;
+            else if (level == 1) smartBotCount++;
+          } catch (Exception e) {}
+        }
+      }
     }
+    
+    // Split-Brain Trigger: Only be "Spicy" if only Humans or other God Bots are in the pot
+    boolean isThinkingOpponentOnly = (dumbBotCount == 0 && smartBotCount == 0);
     
     boolean stealRange = paired || numhand[1] >= 14 || (suited && numhand[1] - numhand[0] <= 4);
     
-    // GTO Hardening: Balanced Early Range (Matching Smart Bot + Suited Wheel Aces)
-    boolean wheelAce = (suited && numhand[1] == 14 && numhand[0] >= 2 && numhand[0] <= 9);
-    boolean faceCards = (numhand[1] >= 13 && numhand[0] >= 10) || (numhand[1] == 12 && numhand[0] >= 11);
+    // GTO Hardening: Balanced Early Range (Matching Smart Bot + Suited Wheel Aces) - SPICY MODE ONLY
+    boolean wheelAce = isThinkingOpponentOnly && (suited && numhand[1] == 14 && numhand[0] >= 2 && numhand[0] <= 9);
+    boolean faceCards = isThinkingOpponentOnly && ((numhand[1] >= 13 && numhand[0] >= 10) || (numhand[1] == 12 && numhand[0] >= 11));
     boolean earlyRange = premium || paired || faceCards || wheelAce;
     
-    // Mixed Strategy Anomaly (15%): Playing GTO Gappers/Trash from any position
-    boolean mixedStrategy = (Math.random() < 0.15 && (suited && numhand[1] - numhand[0] <= 5));
+    // Mixed Strategy Anomaly (15%): Playing GTO Gappers/Trash from any position - SPICY MODE ONLY
+    boolean mixedStrategy = isThinkingOpponentOnly && (Math.random() < 0.15 && (suited && numhand[1] - numhand[0] <= 5));
     
     // Heads-Up Tournament Protocol: Any Ace, King, Queen or Pair becomes Premium
     if (headsUpTable) {
@@ -548,10 +568,10 @@ public class PokerBot extends PokerPlayer {
     boolean headsUpHand = (activeCount == 2);
     double depthRatio = (largestOpponentStack > 0) ? (double) super.getChips() / largestOpponentStack : 1.0;
 
-    // Nightmare Mode Dynamic Check
     boolean isNightmareMode = false;
     for (PokerPlayer pr : players) if (pr != null && "edjiang1234".equalsIgnoreCase(pr.getName())) isNightmareMode = true;
 
+    boolean isThinkingOpponentOnly = (dumbBotCount == 0 && smartBotCount == 0);
     boolean predatoryMode = (headsUpHand && (dumbBotCount > 0 || (isNightmareMode && predatoryIntent)));
     boolean exploitingSmartBot = (smartBotCount > 0 && dumbBotCount == 0); 
     boolean minusOneActive = false;
@@ -566,7 +586,7 @@ public class PokerBot extends PokerPlayer {
 
     if (soulReadSmartBot && myRank > 3) {
        act = 2; // Mathematically deduced Smart Bot has Full House+
-    } else if (nutBlocker) {
+    } else if (nutBlocker && isThinkingOpponentOnly) {
        act = 3; actAmount = exploitingSmartBot ? (int)bluffSizeVsSmart : Math.max(potSize, super.getChips());
     } else if (board.length >= 5 && myRank >= boardRank && p.compareHands(fullHand, bestBoard) == 0) {
       // Defensive Awareness: If board is terrifying and we just have a pair, fold to big pressure
@@ -576,8 +596,8 @@ public class PokerBot extends PokerPlayer {
          if (zeroBet) act = 1; else act = 2;
       }
     } else if (myRank <= 3) { 
-      // Trapping Logic (Slow-play): 20% chance to check/call monster hands to bait bluffs
-      boolean trapMode = (Math.random() < 0.20 && (board.length == 3 || board.length == 4));
+      // Trapping Logic (Slow-play): 20% chance to check/call monster hands to bait bluffs - SPICY MODE ONLY
+      boolean trapMode = (isThinkingOpponentOnly && Math.random() < 0.20 && (board.length == 3 || board.length == 4));
       
       if (dumbBotCount > 0 && largestDumbStack > 0) {
           act = 3; actAmount = Math.max(potSize, largestDumbStack - 1); // MINUS ONE EXPLOIT
@@ -600,8 +620,8 @@ public class PokerBot extends PokerPlayer {
         else { act = 3; actAmount = bet * 2; }
       }
     } else if (myRank <= 7 || draws[0] || draws[1]) { 
-      // GTO Hardening: Semi-Bluffing (40% chance to lead draws aggressively)
-      boolean semiBluff = ((draws[0] || draws[1]) && Math.random() < 0.40);
+      // GTO Hardening: Semi-Bluffing (40% chance to lead draws aggressively) - SPICY MODE ONLY
+      boolean semiBluff = (isThinkingOpponentOnly && (draws[0] || draws[1]) && Math.random() < 0.40);
       
       // Elite Range Advantage: Ace-high boards C-bet 90% of the time
       double cbetFreq = (aceHighBoard) ? 0.90 : 0.65;
