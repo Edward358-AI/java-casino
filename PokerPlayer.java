@@ -38,19 +38,22 @@ public class PokerPlayer extends Player {
           System.out.println("To call: ✨" + bet + "  |  Your contribution: ✨" + prevBet
               + ((status == 1) ? " (SB)" : ((status == 2) ? " (BB)" : "")));
           if (bet < super.getChips()) {
+            boolean canRaise = (super.getChips() >= bet + lastRaise);
+            String raiseLabel = canRaise ? "Raise" : "All In";
             switch (status) {
               case 2:
                 if (prevBet == bet)
-                  act = Player.getValidInt("[1] Check [2] Fold [3] Raise [4] All In", 1, 4);
+                  act = Player.getValidInt("[1] Check [2] Fold [3] " + raiseLabel + " [4] All In", 1, 4);
                 else
-                  act = Player.getValidInt("[1] Call (" + (bet - prevBet) + ") [2] Fold [3] Raise [4] All In", 1, 4);
+                  act = Player.getValidInt("[1] Call (" + (bet - prevBet) + ") [2] Fold [3] " + raiseLabel + " [4] All In", 1, 4);
                 break;
               default:
-                act = Player.getValidInt("[1] Call (" + (bet - prevBet) + ") [2] Fold [3] Raise [4] All In", 1, 4);
+                act = Player.getValidInt("[1] Call (" + (bet - prevBet) + ") [2] Fold [3] " + raiseLabel + " [4] All In", 1, 4);
                 break;
             }
           } else {
-            act = Player.getValidInt("[1] Fold [2] All In", 1, 2);
+            // Stack <= Bet: Only Fold or All-In (Call) remains
+            act = Player.getValidInt("[1] Fold [2] All In (" + super.getChips() + ")", 1, 2);
             act = (act == 1) ? 2 : 4;
           }
           action[0] = act;
@@ -105,12 +108,15 @@ public class PokerPlayer extends Player {
           System.out.println("To call: ✨" + bet + " | Your contribution: ✨" + prevBet
               + ((status == 1) ? " (SB)" : ((status == 2) ? " (BB)" : "")));
           if (bet < super.getChips()) {
+            boolean canRaise = (bet == 0) ? (super.getChips() >= lastRaise) : (super.getChips() >= bet + lastRaise);
+            String raiseLabel = canRaise ? "Raise" : "All In";
             if (bet == 0)
-              flop = Player.getValidInt("[1] Check [2] Fold [3] Bet [4] All In", 1, 4);
+              flop = Player.getValidInt("[1] Check [2] Fold [3] " + raiseLabel + " [4] All In", 1, 4);
             else
-              flop = Player.getValidInt("[1] Call (" + (bet - prevBet) + ") [2] Fold [3] Raise [4] All In", 1, 4);
+              flop = Player.getValidInt("[1] Call (" + (bet - prevBet) + ") [2] Fold [3] " + raiseLabel + " [4] All In", 1, 4);
           } else {
-            flop = Player.getValidInt("[1] Fold [2] All In", 1, 2);
+            // Stack <= Bet: Only Fold or All-In (Call) remains
+            flop = Player.getValidInt("[1] Fold [2] All In (" + super.getChips() + ")", 1, 2);
             flop = (flop == 1) ? 2 : 4;
           }
           action[0] = flop;

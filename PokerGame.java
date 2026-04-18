@@ -509,12 +509,17 @@ class PokerGame {
           int increment = currConts[i] - currBet;
           if (increment < lastRaise && currAction[0] != 4) {
              // AUTO-FIX: Force illegal raise up to the legal minimum
-             int fix = (currBet + lastRaise) - (currConts[i] - currAction[1]);
-             pot.addPlayerContribution(i, fix - currAction[1]); // Correct the difference
-             currConts[i] = currBet + lastRaise;
-             increment = lastRaise;
+             int minTarget = currBet + lastRaise;
+             int availableToAdd = players[i].getChips();
+             int addAmount = (minTarget - currConts[i]);
+             
+             if (addAmount > availableToAdd) addAmount = availableToAdd;
+             
+             pot.addPlayerContribution(i, addAmount);
+             currConts[i] += addAmount;
+             increment = (currConts[i] > currBet) ? (currConts[i] - currBet) : lastRaise;
           }
-          lastRaise = increment;
+          lastRaise = (increment > 0) ? increment : lastRaise;
           currBet = currConts[i];
           lastPlayer = i;
         }

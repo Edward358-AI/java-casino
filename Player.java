@@ -31,6 +31,11 @@ public class Player {
     this.chips += chips;
   }
   public int removeChips(int chips) {
+    if (chips > this.chips) {
+      int taken = this.chips;
+      this.chips = 0;
+      return taken;
+    }
     this.chips -= chips;
     return chips;
   }

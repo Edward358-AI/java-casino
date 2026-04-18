@@ -77,6 +77,7 @@ public class PokerBot extends PokerPlayer {
     return botLevel;
   }
 
+
   public void setBotLevel(int level) {
     this.botLevel = level;
     if (level == 2) predatoryIntent = (Math.random() < 0.5); // Re-roll intent for promoted gods
@@ -183,7 +184,7 @@ public class PokerBot extends PokerPlayer {
                 action[0] = 3;
                 int raiseTo = (bet == 0) ? (int) (blind * (Math.random() + 2)) : (int) (bet * (Math.random() + 2));
                 raiseTo = Math.max(raiseTo, bet + lastRaise); // Standardized Floor
-                action[1] = raiseTo - prevBet;
+                action[1] = Math.min(raiseTo - prevBet, super.getChips());
               } else {
                 action[0] = 1;
                 if (bet > 0) {
@@ -445,26 +446,26 @@ public class PokerBot extends PokerPlayer {
     boolean defenseRange = earlyRange || stealRange;
     
     if (premium || (chipleader && shortStacks && stealRange) || mixedStrategy) {
-      if (bet > blind) {
-        action[0] = 3;
-        action[1] = Math.min(bet * 3, super.getChips());
-      } else {
-        action[0] = 3;
-        int raiseTo = Math.min(Math.max(bet + lastRaise, blind * 3), super.getChips());
-        action[1] = raiseTo - prevBet;
-      }
+      action[0] = 3;
+      int intended = (bet > blind) ? (bet * 3) : (blind * 3);
+      int raiseTo = Math.min(Math.max(intended, bet + lastRaise), super.getChips());
+      action[1] = raiseTo - prevBet;
     } else if (bet > blind && isThinkingOpponentOnly) {
       // SPICY MODE: Active Defense Logic
       double threeBetChance = 0.35; // 35% chance to re-raise bluffs
       
       if (defenseRange && Math.random() < threeBetChance) {
-          action[0] = 3; action[1] = Math.min(bet * 3, super.getChips()); // Balanced 3-Bet
+          action[0] = 3; 
+          int raiseTo = Math.min(Math.max(bet * 3, bet + lastRaise), super.getChips());
+          action[1] = raiseTo - prevBet;
       } else if (seatIndex == 1 && bet <= blind * 4.5 && defenseRange) {
           action[0] = 1; action[1] = bet - prevBet; // Big Blind Defense (Sticky Call)
       } else if (latePos && bet <= blind * 3.5 && (paired || wheelAce)) {
           action[0] = 1; action[1] = bet - prevBet; // Positional Flatting (Call in position)
       } else if (headsUpTable) {
-          action[0] = 3; action[1] = Math.max(bet * 3, blind * 3); // Survival Re-raise
+          action[0] = 3; 
+          int raiseTo = Math.min(Math.max(bet * 3, bet + lastRaise), super.getChips());
+          action[1] = raiseTo - prevBet;
       } else {
           action[0] = 2; action[1] = 0; // Still fold trash
       }
@@ -492,7 +493,9 @@ public class PokerBot extends PokerPlayer {
     if (action[0] == 3) {
       int noise = (int)(Math.random() * 11) - 5; // Humanoid Noise: +/- 5 chips
       int raiseTo = (prevBet + action[1]) + noise;
-      if (raiseTo <= bet) raiseTo = Math.min(super.getChips(), bet + lastRaise + (int)(Math.random() * 5));
+      // FINAL LEGAL GUARD: Ensure the noisy bet still respects the increment floor
+      int legalMin = bet + lastRaise;
+      if (raiseTo < legalMin) raiseTo = Math.min(super.getChips(), legalMin + (int)(Math.random() * 5));
       action[1] = raiseTo - prevBet;
     }
     
@@ -736,6 +739,12 @@ public class PokerBot extends PokerPlayer {
        actAmount += (int)(Math.random() * 11) - 5;
     }
     
+    // FINAL POST-FLOP LEGAL GUARD: Ensure noise didn't violate the increment rule
+    if (act == 3) {
+       int legalMin = bet + lastRaise;
+       if (actAmount < legalMin) actAmount = Math.min(super.getChips() + prevBet, legalMin);
+    }
+    
     if (dumbBotCount > 0 && act == 3 && myRank > 7 && !headsUpHand) act = 1; // Only eradicate bluffs in multi-player pots
     if (act == 3 && actAmount <= bet) actAmount = bet + lastRaise; // Ensure legal raise (Official Increment Rule)
     if (act == 3 && actAmount == 0) actAmount = lastRaise;
@@ -745,6 +754,7 @@ public class PokerBot extends PokerPlayer {
     // NUCLEAR PREDATOR OVERRIDE: 1v1 against fish, NEVER fold top-pair+
     if (predatoryMode && act == 2 && myRank <= 8) act = 1; 
 
+    if (act == 3 && actAmount > super.getChips() + prevBet) { act = 4; actAmount = super.getChips() + prevBet; }
     if (act == 4) { action[0] = 4; action[1] = super.getChips(); }
     else if (act == 3) { action[0] = 3; action[1] = actAmount - prevBet; }
     else if (act == 2) { action[0] = zeroBet ? 1 : 2; action[1] = 0; }

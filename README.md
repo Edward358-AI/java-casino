@@ -33,6 +33,7 @@ The flagship poker suite simulates a "No Limit" environment with complex pot man
 - **The Orbit System**: Dealer rotation is tracked via the orbit system, with blinds increasing every 2-3 orbits to ensure game progression.
 - **Skip Mode**: When only bots remain in a hand, human players can trigger **"Skip Mode"** to fast-forward the simulation and see the results instantly.
 - **Pot Logic (`PokerPot.java`)**: Correctly handles all-ins and side-pots using a **Threshold Reconstruction** algorithm that perfectly calculates eligibility for multi-winner showdowns.
+- **Official Increment Rule**: Implements the standard "Previous Increment" min-raise rule. The engine natively enforces a **Zero-Debt Architecture** that prevents negative chip stacks and intelligently converts shallow bets into legal All-Ins.
 
 ### 2. The Overlord AI Hierarchy (`PokerBot.java`)
 The hierarchy is split into three intelligence tiers, each with hardcoded behavioral triggers and audited mathematical win-rates.
@@ -60,9 +61,9 @@ The pinnacle of the engine, designed for high-stakes dominance. (12% native spaw
 
 | Matchup | Winner | **Win %** | Loser | **Win %** |
 | :--- | :--- | :--- | :--- | :--- |
-| **Dumb vs. God** | 🔴 **God Bot** | **99.91%** | 🟢 Dumb Bot | **0.09%** |
-| **Dumb vs. Smart** | 🔵 **Smart Bot** | **97.21%** | 🟢 Dumb Bot | **2.79%** |
-| **Smart vs. God** | 🔴 **God Bot** | **92.28%** | 🔵 Smart Bot | **7.72%** |
+| **Dumb vs. God** | 🔴 **God Bot** | **99.93%** | 🟢 Dumb Bot | **0.07%** |
+| **Dumb vs. Smart** | 🔵 **Smart Bot** | **97.42%** | 🟢 Dumb Bot | **2.58%** |
+| **Smart vs. God** | 🔴 **God Bot** | **91.63%** | 🔵 Smart Bot | **8.37%** |
 
 ---
 
