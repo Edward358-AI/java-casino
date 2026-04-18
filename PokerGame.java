@@ -339,6 +339,7 @@ class PokerGame {
       lastPlayer = 0;
       currConts = new int[players.length];
       currBet = 0;
+      lastRaise = blinds; // Reset min-lead to 1BB for the next street
       if (j < 2)
         boardForBot.add(b[j + 3]);
       if (stillIn() < 2)

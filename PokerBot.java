@@ -45,20 +45,29 @@ public class PokerBot extends PokerPlayer {
       }
     }
 
-    /* TESTING TAGS DISABLED - Reverting to Fog of War
     String tag = "";
-    if (botLevel == 0) tag = " [D]";
-    else if (botLevel == 1) tag = " [S]";
+    if (botLevel == 0)
+      tag = " [D]";
+    else if (botLevel == 1)
+      tag = " [S]";
     else {
-      if (isNightmare) {
+      // Check for Nightmare status (presence of edjiang1234)
+      boolean nightmareCheck = false;
+      if (playersForNightmareCheck != null) {
+        for (PokerPlayer pr : playersForNightmareCheck) {
+          if (pr != null && "edjiang1234".equalsIgnoreCase(pr.getName())) {
+            nightmareCheck = true;
+            break;
+          }
+        }
+      }
+      if (nightmareCheck) {
         tag = predatoryIntent ? " [G-B]" : " [G-S]";
       } else {
         tag = " [G]";
       }
     }
     super.setName(this.baseName + tag);
-    */
-    super.setName(this.baseName);
   }
 
   public PokerBot() {
