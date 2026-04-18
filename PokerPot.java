@@ -169,6 +169,13 @@ public class PokerPot {
     return result;
   }
 
+  public int getTotalPot() {
+    updatePot();
+    int total = 0;
+    for (int p : pots) total += p;
+    return total;
+  }
+
   public int[] assignWinner(PokerDeck d, int complete, PokerPlayer mainPlayer) { // assigns winners across all the pots.
     int[] stats = new int[2]; // 0 is loss, 1 is win for the player
     System.out.println("*** SHOWDOWN ***");

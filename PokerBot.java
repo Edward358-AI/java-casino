@@ -7,14 +7,19 @@ public class PokerBot extends PokerPlayer {
       { 13, 13 }, { 13, 12 }, { 13, 11 }, { 13, 10 }, { 13, 9 }, { 13, 8 }, { 12, 12 }, { 12, 11 }, { 12, 10 },
       { 12, 9 }, { 12, 8 }, { 11, 11 }, { 11, 10 }, { 11, 9 }, { 11, 8 }, { 10, 10 }, { 9, 9 }, { 8, 8 }, { 7, 7 },
       { 6, 6 }, { 5, 5 }, { 4, 4 }, { 3, 3 }, { 2, 2 } }; // preset hands for smart bot
-  private boolean dumb; // dumb is basically if the bot should js do random stuff or have some decency
+  private int botLevel; // 0 = dumb, 1 = smart, 2 = god
+  private boolean cbetFlop = false; // Persistent state for barrelling logic
 
   public PokerBot(PokerPlayer[] currentPlayers) {
     super("temp");
     randomName(currentPlayers);
-    dumb = true;
-    if (Math.random() > 0.5)
-      dumb = false;
+    double r = Math.random();
+    if (r < 0.44)
+      botLevel = 0;
+    else if (r < 0.88)
+      botLevel = 1;
+    else
+      botLevel = 2;
     if (super.getName().equals("Aventurine")) {
       opMode = true;
     }
@@ -39,8 +44,14 @@ public class PokerBot extends PokerPlayer {
     }
   }
 
-  public int[] action(String round, int prevBet, int bet, int blind, Card[] board) {
-    if (dumb) { // idiot bot code, fixed percentages for all situations no matter what
+  public int[] action(String round, int prevBet, int bet, int blind, Card[] board, int potSize, PokerPlayer[] players, int seatIndex, int preflopAggressorIndex) {
+    if (botLevel == 2) {
+      if (round.equals("preflop")) {
+        return godPreflop(prevBet, bet, blind, players, seatIndex);
+      } else {
+        return godPostflop(prevBet, bet, blind, board, potSize, players, seatIndex, preflopAggressorIndex);
+      }
+    } else if (botLevel == 0) { // idiot bot code, fixed percentages for all situations no matter what
       int[] action = new int[2];
       double rand = Math.random();
       if (opMode && super.getChips() > 0) {
@@ -90,12 +101,13 @@ public class PokerBot extends PokerPlayer {
           action[1] = super.getChips();
         }
       } else {
-        if (Math.random() > 0.8) {
+        // Dumb Bot Extinction Rule: 60% Shove, 40% Fold
+        if (Math.random() < 0.6) {
           action[0] = 4;
           action[1] = super.getChips();
         } else {
           action[0] = 2;
-
+          action[1] = 0;
         }
       }
       return action;
@@ -219,14 +231,18 @@ public class PokerBot extends PokerPlayer {
                 subAction = 4;
               }
             } else {
-              if (rand <= 30) {
-                subAction = 0;
-              } else if (rand > 30 && rand <= 45) {
-                subAction = 1;
-              } else if (rand > 45 && rand <= 50) {
-                subAction = 2;
+              if (draw[0] || draw[1]) {
+                 if (Math.random() < 0.50) subAction = 0; else subAction = 4; // Gamble on draws 50%
               } else {
-                subAction = 4;
+                 if (rand <= 30) {
+                   subAction = 0;
+                 } else if (rand > 30 && rand <= 45) {
+                   subAction = 1;
+                 } else if (rand > 45 && rand <= 50) {
+                   subAction = 2;
+                 } else {
+                   subAction = 4;
+                 }
               }
             }
           } else {
@@ -256,6 +272,9 @@ public class PokerBot extends PokerPlayer {
           bet = blind;
           zeroBet = true;
         }
+        
+        // Override removed to bring bust rate up to 20-30%
+        
         switch (subAction) {
           case 0:
             action[0] = 1;
@@ -291,6 +310,248 @@ public class PokerBot extends PokerPlayer {
       }
       return action;
     }
+  }
+
+  private int[] godPreflop(int prevBet, int bet, int blind, PokerPlayer[] players, int seatIndex) {
+    int[] action = new int[2];
+    int[] numhand = Deck.cardToInt(super.getHand());
+    Arrays.sort(numhand);
+    boolean paired = numhand[0] == numhand[1];
+    boolean suited = super.getHand()[0].getValue().charAt(1) == super.getHand()[1].getValue().charAt(1);
+    boolean premium = (paired && numhand[0] >= 10) || (numhand[0] >= 13 && numhand[1] >= 13) || (numhand[1] == 14 && numhand[0] >= 11);
+    
+    boolean earlyPos = (seatIndex >= 2 && seatIndex <= 3);
+    boolean latePos = (seatIndex >= players.length - 2);
+    boolean inBlinds = (seatIndex == 0 || seatIndex == 1);
+    boolean unraised = (bet == blind || bet == 0);
+    
+    boolean chipleader = true;
+    for (PokerPlayer p : players) {
+      if (p.inHand() && p != this && p.getChips() > super.getChips()) chipleader = false;
+    }
+    boolean shortStacks = true;
+    for (PokerPlayer p : players) {
+      if (p.inHand() && p != this && p.getChips() > blind * 20) shortStacks = false;
+    }
+    
+    boolean stealRange = paired || numhand[1] >= 14 || (suited && numhand[1] - numhand[0] <= 4);
+    boolean earlyRange = premium || (paired && numhand[0] >= 8);
+
+    if (premium || (chipleader && shortStacks && stealRange)) {
+      if (bet > blind) {
+        action[0] = 3;
+        action[1] = Math.min(bet * 3, super.getChips());
+      } else {
+        action[0] = 3;
+        action[1] = Math.min(blind * 3, super.getChips());
+      }
+    } else if (unraised && latePos && stealRange) {
+      action[0] = 3;
+      action[1] = Math.min(blind * 3, super.getChips());
+    } else if (unraised && inBlinds) {
+      if (bet <= super.getChips() / 4) {
+        action[0] = bet > 0 ? 1 : 1;
+        action[1] = bet > 0 ? bet - prevBet : 0;
+      } else {
+         action[0] = 2; action[1] = 0;
+      }
+    } else if (earlyPos && earlyRange) {
+      action[0] = 3; action[1] = Math.min(blind * 3, super.getChips());
+    } else {
+      action[0] = 2; // fold
+      action[1] = 0;
+      if (bet == 0) { action[0] = 1; action[1] = 0; }
+    }
+    
+    if (action[1] >= super.getChips()) { action[0] = 4; action[1] = super.getChips(); }
+    cbetFlop = false; // Reset barrelling state for new hand
+    return action;
+  }
+
+  private int[] godPostflop(int prevBet, int bet, int blind, Card[] board, int potSize, PokerPlayer[] players, int seatIndex, int preflopAggressorIndex) {
+    int[] action = new int[2];
+    Card[] fullHand = new Card[5];
+    if (board.length == 3) {
+      fullHand[0] = super.getHand()[0];
+      fullHand[1] = super.getHand()[1];
+      for (int i = 0; i < 3; i++) fullHand[i + 2] = board[i];
+    } else {
+      fullHand = p.getBestHand(super.getHand(), board);
+    }
+    
+    int myRank = p.getRanking(fullHand);
+    
+    Card[] bestBoard = null;
+    int boardRank = 9;
+    if (board.length >= 5) {
+      bestBoard = p.getBestHand(new Card[0], board);
+      boardRank = p.getRanking(bestBoard);
+    }
+    
+    Card[] total = new Card[2 + board.length];
+    total[0] = super.getHand()[0];
+    total[1] = super.getHand()[1];
+    for (int i = 0; i < board.length; i++) total[i + 2] = board[i];
+    boolean[] draws = draw(total);
+    int outs = 0;
+    if (draws[0]) outs += 8;
+    if (draws[1]) outs += 9;
+    double equity = (board.length == 3) ? (outs * 4) / 100.0 : (board.length == 4 ? (outs * 2) / 100.0 : 0);
+    
+    boolean zeroBet = (bet == 0);
+    double costToCall = zeroBet ? 0 : bet - prevBet;
+    double potOdds = costToCall / Math.max(1, (double)(potSize + costToCall));
+    
+    int act = 1; 
+    int actAmount = zeroBet ? 0 : bet - prevBet;
+    
+    boolean cbet = (board.length == 3 && preflopAggressorIndex == seatIndex);
+    
+    boolean flushScare = false;
+    String scareSuit = "";
+    int[] flushC = new int[4];
+    for (Card d : board) {
+       switch(d.getValue().substring(1)) {
+          case "♠️": flushC[0]++; if(flushC[0]>=3) scareSuit="♠️"; break;
+          case "♣️": flushC[1]++; if(flushC[1]>=3) scareSuit="♣️"; break;
+          case "♦️": flushC[2]++; if(flushC[2]>=3) scareSuit="♦️"; break;
+          case "♥️": flushC[3]++; if(flushC[3]>=3) scareSuit="♥️"; break;
+       }
+    }
+    for (int i : flushC) if (i >= 3) flushScare = true;
+    
+    // Elite Awareness: Straight Scares and Paired Boards
+    boolean straightScare = false;
+    if (board.length >= 4) {
+      Card[] bSorted = board.clone();
+      Deck.sort(bSorted);
+      int con = 0;
+      for (int i = 1; i < bSorted.length; i++) {
+        if (bSorted[i].getNum() == bSorted[i-1].getNum() + 1) con++;
+        else if (bSorted[i].getNum() != bSorted[i-1].getNum()) con = 0;
+        if (con >= 3) straightScare = true;
+      }
+    }
+    
+    boolean pairedBoard = false;
+    for (int i = 0; i < board.length; i++) {
+      for (int k = i + 1; k < board.length; k++) {
+        if (board[i].getNum() == board[k].getNum()) pairedBoard = true;
+      }
+    }
+
+    boolean aceHighBoard = false;
+    for (Card d : board) if (d.getNum() == 14) aceHighBoard = true;
+    
+    boolean nutBlocker = false;
+    if (flushScare && myRank > 4) { 
+       if ((super.getHand()[0].getValue().charAt(1) == scareSuit.charAt(0) && super.getHand()[0].getNum() == 14) ||
+           (super.getHand()[1].getValue().charAt(1) == scareSuit.charAt(0) && super.getHand()[1].getNum() == 14)) {
+           nutBlocker = true;
+       }
+    }
+    
+    int smartBotCount = 0;
+    int dumbBotCount = 0;
+    int godBotCount = 0;
+    int largestSmartStack = 0;
+    for (PokerPlayer pr : players) {
+      if (pr.inHand() && pr != this && pr instanceof PokerBot) {
+         try {
+           java.lang.reflect.Field f = PokerBot.class.getDeclaredField("botLevel");
+           f.setAccessible(true);
+           int level = (int) f.get(pr);
+           if (level == 1) { smartBotCount++; if (pr.getChips() > largestSmartStack) largestSmartStack = pr.getChips(); }
+           else if (level == 0) dumbBotCount++;
+           else if (level == 2) godBotCount++;
+         } catch (Exception e) {}
+      }
+    }
+    boolean exploitingSmartBot = (smartBotCount > 0 && dumbBotCount == 0); 
+    double bluffSizeVsSmart = (largestSmartStack > 0) ? (largestSmartStack * 0.85) : potSize;
+
+    // Heuristic Sizing Scanner (Soul Reading)
+    boolean soulReadSmartBot = false;
+    if (!zeroBet && smartBotCount > 0) {
+       double baseBet = (prevBet > 0) ? prevBet : blind;
+       if (bet >= baseBet * 2.6) soulReadSmartBot = true;
+    }
+
+    if (soulReadSmartBot && myRank > 3) {
+       act = 2; // Mathematically deduced Smart Bot has Full House+
+    } else if (nutBlocker) {
+       act = 3; actAmount = exploitingSmartBot ? (int)bluffSizeVsSmart : Math.max(potSize, super.getChips());
+    } else if (board.length >= 5 && myRank >= boardRank && p.compareHands(fullHand, bestBoard) == 0) {
+      // Defensive Awareness: If board is terrifying and we just have a pair, fold to big pressure
+      if (!zeroBet && (flushScare || straightScare) && costToCall > potSize * 0.5 && myRank > 5) {
+         act = 2;
+      } else {
+         if (zeroBet) act = 1; else act = 2;
+      }
+    } else if (myRank <= 3) { 
+      if (dumbBotCount > 0) {
+          act = 3; actAmount = Math.max(potSize, super.getChips()); // GREED PROTOCOL
+      } else {
+          if (zeroBet) { act = 3; actAmount = (int)(potSize * 0.75); } 
+          else { act = 3; actAmount = bet * 3; }
+      }
+    } else if (myRank <= 5) { 
+      if (zeroBet) { act = 3; actAmount = (int)(potSize * 0.5); }
+      else { 
+        if (costToCall > super.getChips() * 0.5) { act = 1; actAmount = bet - prevBet; } 
+        else { act = 3; actAmount = bet * 2; }
+      }
+    } else if (myRank <= 7 || draws[0] || draws[1]) { 
+      // Elite Range Advantage: Ace-high boards C-bet 90% of the time
+      double cbetFreq = (aceHighBoard) ? 0.90 : 0.65;
+      if (dumbBotCount > 0) cbetFreq = 0.20; // Respect calling stations, save chips
+
+      if (zeroBet && cbet && Math.random() < cbetFreq) {
+         act = 3; actAmount = (int)(Math.max(potSize * 0.4, blind));
+         if (board.length == 3) cbetFlop = true;
+      } else if (board.length == 4 && cbetFlop && board[3].getNum() >= 11 && Math.random() < 0.70) {
+         // Triple Barreling: Turn is a face card and we C-bet flop
+         act = 3; actAmount = (int)(potSize * 0.6);
+      } else if (!zeroBet && (draws[0] || draws[1]) && equity > potOdds) {
+         act = 1; actAmount = bet - prevBet;
+      } else if (!zeroBet && costToCall <= super.getChips() * 0.20 && costToCall > 0) { 
+         act = 1; actAmount = bet - prevBet;
+      } else {
+         if (zeroBet) act = 1; else act = 2;
+      }
+    } else { 
+      double cbetFreq = (aceHighBoard) ? 0.90 : 0.65;
+      if (dumbBotCount > 0) cbetFreq = 0.20;
+
+      if (zeroBet && cbet && Math.random() < cbetFreq) {
+         act = 3; actAmount = (int)(Math.max(potSize * 0.4, blind)); 
+         if (board.length == 3) cbetFlop = true;
+      } else if (board.length == 4 && cbetFlop && board[3].getNum() >= 11 && Math.random() < 0.70) {
+         // Triple Barreling
+         act = 3; actAmount = (int)(potSize * 0.6);
+      } else {
+         act = zeroBet ? 1 : 2; 
+      }
+    }
+    
+    // Meta-Bluffing Level 3: Overbetting to exploit other God Bots who respect math
+    if (godBotCount > 0 && dumbBotCount == 0 && Math.random() < 0.12 && act == 2) {
+       act = 3;
+       actAmount = (int)(potSize * (1.5 + Math.random()));
+    }
+    
+    if (dumbBotCount > 0 && act == 3 && myRank > 5) act = 1; // Don't bluff calling stations
+    if (act == 3 && actAmount <= bet) actAmount = bet * 2 + blind; // Ensure legal raise
+    if (act == 3 && actAmount == 0) actAmount = blind;
+    
+    if (act == 3 && actAmount >= super.getChips() * 0.9) { act = 4; } 
+    if (act == 4) { action[0] = 4; action[1] = super.getChips(); }
+    else if (act == 3) { action[0] = 3; action[1] = actAmount; }
+    else if (act == 2) { action[0] = zeroBet ? 1 : 2; action[1] = 0; }
+    else { action[0] = 1; action[1] = zeroBet ? 0 : bet - prevBet; }
+    
+    if (action[1] >= super.getChips()) { action[0] = 4; action[1] = super.getChips(); }
+    return action;
   }
 
   public boolean[] draw(Card[] total) {

@@ -14,6 +14,7 @@ class PokerGame {
   private PlayerStat mp; // keeps track of players stats for the game
   private PokerPlayer mainPlayer; // original player
   private boolean skipMode = false; // keeps track of whether we are fast-forwarding
+  private int preflopAggressorIndex = -1;
 
   public PokerGame(PokerPlayer[] players) { // initialiaze a poker game
     this.players = players;
@@ -151,7 +152,9 @@ class PokerGame {
 
         if (players[i] instanceof PokerBot) {
           PokerBot temp = (PokerBot) players[i];
-          currAction = temp.action("preflop", currConts[i], currBet, blinds, null);
+          int livePot = pot.getTotalPot();
+          for(int c : currConts) livePot += c;
+          currAction = temp.action("preflop", currConts[i], currBet, blinds, null, livePot, players, i, preflopAggressorIndex);
         } else {
           System.out.println("Are you " + players[i].getName() + "? Press Enter to confirm and show your hand...");
           Utils.flushInput();
@@ -163,6 +166,9 @@ class PokerGame {
         }
 
         String actionLog = handleAction(i);
+        if (currAction[0] == 3 || currAction[0] == 4) {
+          if (currAction[1] > 0) preflopAggressorIndex = i;
+        }
         if (!(players[i] instanceof PokerBot))
           actionLog += " (real)";
         // Reprint with updated stack after action
@@ -273,7 +279,9 @@ class PokerGame {
 
           if (players[i] instanceof PokerBot) {
             PokerBot temp = (PokerBot) players[i];
-            currAction = temp.action("postflop", currConts[i], currBet, blinds, boardForBot.toArray(new Card[j + 3]));
+            int livePot = pot.getTotalPot();
+            for(int c : currConts) livePot += c;
+            currAction = temp.action("postflop", currConts[i], currBet, blinds, boardForBot.toArray(new Card[j + 3]), livePot, players, i, preflopAggressorIndex);
           } else {
             System.out.println("Are you " + players[i].getName() + "? Press Enter to confirm and show your hand...");
             Utils.flushInput();
@@ -361,6 +369,7 @@ class PokerGame {
     mp.hands();
     boolean gameOver = false;
     p.reset();
+    preflopAggressorIndex = -1;
     players[0].setStatus(0);
     players[1].setStatus(0);
     PokerPlayer first = players[players.length - 1];
