@@ -55,6 +55,7 @@ The God Bot is a mathematically rigorous entity that assesses Game Theory metric
 *   **Elite Board Awareness**: Scans aggressively for board textures (Paired boards, 4-Straights, 4-Flushes). If the board creates a massive scare and it only holds Top Pair, it performs defensive check-folds against big bets.
 *   **Multi-Street Aggression**: Maintains memory of its actions. C-bets 90% of the time on Ace-High flops. If it raised the flop, it executes **Triple Barrelling** (firing 70% of the time on Turn face-cards) to bully opponents regardless of its actual hand.
 *   **Nut Blockers**: If the God bot holds the Ace of a flush suit on board (but does not have the flush itself), it will intentionally shove its entire stack, blocking the opponent from holding the nuts.
+*   **Humanoid Noise Injection**: When raising, the God Bot adds a random **+/- 5 chip offset** to its bets. This intentional "messiness" breaks predictable clean denominations (like 200 or 500) and mimics human imperfection to throw off professional opponents. (Automatically disabled during precision exploits like *Minus One*).
 
 ### Advanced Exploitation Suites
 *   **Greed Protocol "Minus One" Exploit**: If `dumbBotCount > 0` and the God Bot holds a Full House or better, it abandons standard Value-Bet formulas. Instead of shoving All-In (which triggers the Dumb Bot's 50% "Coward" fold logic), the God Bot perfectly prices its massive overbet to exactly **`DumbBot_Stack - 1`**. This mathematically bypasses the All-In threshold and forces the Dumb Bot into its 75% flat-call loop, extracting absolute maximum tournament chips.
@@ -92,15 +93,15 @@ To verify the raw power gaps between bot tiers, a series of **30,000 matches** (
 
 | Matchup | Winner | **Win %** | Loser | **Win %** |
 | :--- | :--- | :--- | :--- | :--- |
-| **Dumb vs. God** | 🔴 **God Bot** | **99.91%** | 🟢 Dumb Bot | **0.09%** |
-| **Dumb vs. Smart** | 🔵 **Smart Bot** | **97.21%** | 🟢 Dumb Bot | **2.79%** |
-| **Smart vs. God** | 🔴 **God Bot** | **92.28%** | 🔵 Smart Bot | **7.72%** |
+| **Dumb vs. God** | 🔴 **God Bot** | **99.96%** | 🟢 Dumb Bot | **0.04%** |
+| **Dumb vs. Smart** | 🔵 **Smart Bot** | **97.29%** | 🟢 Dumb Bot | **2.71%** |
+| **Smart vs. God** | 🔴 **God Bot** | **90.45%** | 🔵 Smart Bot | **9.55%** |
 
 ### 👑 The "Nuclear Hegemony" Fix
 Following advanced testing and simulation re-calibration, the God Bot has been upgraded to **Nuclear Overlord** status.
 *   **The Problem**: Previously, elite bots were surrendering blinds in 1v1 due to over-tight ranges.
 *   **The Fix**: God Bots now execute 100% blind-defense and relentless post-flop aggression in 1v1 duels. This has pushed the win-rate to the physical limit of the game (99.9%).
-*   **God vs. Smart Outcome**: The God Bot now maintains a **92.28% dominance** over the Smart Bot when isolated. Even with its wider, "Balanced" pre-flop range, the God Bot's superior deceptive logic (Traps and Semi-Bluffs) ensures it remains the definitive final boss of the system.
+*   **God vs. Smart Outcome**: The God Bot now maintains a **90.45% dominance** over the Smart Bot when isolated. Even with its wider, "Balanced" pre-flop range and humanoid betting noise, the God Bot's superior deceptive logic (Traps and Semi-Bluffs) ensures it remains the definitive final boss of the system.
 
 ---
 
@@ -108,17 +109,17 @@ Following advanced testing and simulation re-calibration, the God Bot has been u
 
 This section details the specific algorithmic interactions and "Hacks" that allow each tier to dominate its respective matchups in a 1v1 environment.
 
-### 1. 🔴 God Bot vs. 🔵 Smart Bot (92% Dominance)
+### 1. 🔴 God Bot vs. 🔵 Smart Bot (90.45% Dominance)
 The God Bot dominates the Smart Bot by treating its code as an "Open Book." It ignores psychological games and focuses on two brutal technical exploits:
 *   **Heuristic Sizing Scanner (Soul Reading)**: The God Bot recognizes that the Smart Bot is **Linear**. It knows that a Smart Bot *never* bets >= 2.6x unless it holds a Full House or better. The God Bot uses this sizing trigger to perform "Perfect Folds," saving its stack whenever the Smart Bot stumbles into a monster.
 *   **Draw-Chase Taxation**: The God Bot identifies when a board has flush/straight possibilities. It knows the Smart Bot will chase any draw with a 50% frequency regardless of price. The God Bot intentionally over-bets these boards, charging the Smart Bot a massive "Math Tax" that drains its stack over time.
 
-### 2. 🔴 God Bot vs. 🟢 Dumb Bot (99.9% Dominance)
+### 2. 🔴 God Bot vs. 🟢 Dumb Bot (99.96% Dominance)
 In this matchup, the God Bot abandons GTO safety and switches to **"Predatory Exploitation"** once isolated:
 *   **Predatory Bluffing (1v1 Only)**: When heads-up against a Dumb Bot, the God Bot spikes its C-bet frequency to **60%** (up from **0%** in multi-way pots). It knows the Dumb Bot folds "Air" enough to make this profitable in isolation, but it maintains **0% bluffs** in multi-way pots to avoid bleeding chips to calling stations.
 *   **The "Minus One" Exploit**: The God Bot bypasses the Dumb Bot's 50% all-in fold logic. It prices its value-bets to exactly `Opponent_Stack - 1`. This forces the Dumb Bot into its 75% "Flat Call" loop, ensuring the God Bot extracts 99.9% of the stack without ever triggering a coin-flip fold.
 
-### 3. 🔵 Smart Bot vs. 🟢 Dumb Bot (97% Dominance)
+### 3. 🔵 Smart Bot vs. 🟢 Dumb Bot (97.29% Dominance)
 The Smart Bot wins through **Disciplined Value-Targeting**. While it lacks the "Hacks" of the God Bot, it possesses a massive edge over the Dumb Bot through simple consistency:
 *   **Linear Value Betting**: The Smart Bot only bets when it hits its charts (Top Pair+). Because the Dumb Bot is a "Calling Station" that never folds, the Smart Bot simply waits to hit a better hand and bets it for value.
 *   **Chaos Immunity**: The Dumb Bot's random actions (like random all-ins) often confuse humans, but the Smart Bot is immune to this "Chaos." It follows its threshold charts; if its cards are good, it calls. If not, it folds. This lack of emotion allows it to eventually capture the Dumb Bot's stack through superior card-selection alone.

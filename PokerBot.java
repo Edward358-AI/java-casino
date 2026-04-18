@@ -90,7 +90,7 @@ public class PokerBot extends PokerPlayer {
     }
   }
 
-  public int[] action(String round, int prevBet, int bet, int blind, Card[] board, int potSize, PokerPlayer[] players, int seatIndex, int preflopAggressorIndex) {
+  public int[] action(String round, int prevBet, int bet, int blind, int lastRaise, Card[] board, int potSize, PokerPlayer[] players, int seatIndex, int preflopAggressorIndex) {
     int tablePlayers = 0;
     for (PokerPlayer p : players) if (p.getChips() > 0) tablePlayers++;
     boolean headsUpTable = (tablePlayers == 2);
@@ -101,9 +101,9 @@ public class PokerBot extends PokerPlayer {
 
     if (botLevel == 2) {
       if (round.equals("preflop")) {
-        return godPreflop(prevBet, bet, blind, players, seatIndex);
+        return godPreflop(prevBet, bet, blind, lastRaise, players, seatIndex);
       } else {
-        return godPostflop(prevBet, bet, blind, board, potSize, players, seatIndex, preflopAggressorIndex);
+        return godPostflop(prevBet, bet, blind, lastRaise, board, potSize, players, seatIndex, preflopAggressorIndex);
       }
     } else if (botLevel == 0) { // idiot bot code, fixed percentages for all situations no matter what
       int[] action = new int[2];
@@ -124,20 +124,20 @@ public class PokerBot extends PokerPlayer {
             int max;
             int min;
             if (round.equals("preflop")) {
-              max = super.getChips() / 10 + bet + blind;
-              min = bet + blind;
+              max = super.getChips() / 10 + bet + lastRaise;
+              min = bet + lastRaise;
             } else {
               if (bet == 0) {
-                max = super.getChips() / 10 + blind;
-                min = blind;
-
+                max = super.getChips() / 10 + lastRaise;
+                min = lastRaise;
               } else {
-                max = super.getChips() / 10 + bet + blind;
-                min = bet + blind;
+                max = super.getChips() / 10 + bet + lastRaise;
+                min = bet + lastRaise;
               }
             }
             action[0] = 3;
-            action[1] = (int) (Math.random() * (max - min + 1) + min);
+            int raiseTo = (int) (Math.random() * (max - min + 1) + min);
+            action[1] = raiseTo - prevBet;
           } else {
             // if those "conditions" are not met, then has 15% to continue and all in the current bet, otherwise folds.
             if (Math.random() > 0.85) {
@@ -181,7 +181,9 @@ public class PokerBot extends PokerPlayer {
             if (bet < super.getChips() / 2) {
               if (Math.random() < 0.2) {
                 action[0] = 3;
-                action[1] = (bet == 0) ? (int) (blind * (Math.random() + 2)) : (int) (bet * (Math.random() + 2));
+                int raiseTo = (bet == 0) ? (int) (blind * (Math.random() + 2)) : (int) (bet * (Math.random() + 2));
+                raiseTo = Math.max(raiseTo, bet + lastRaise); // Standardized Floor
+                action[1] = raiseTo - prevBet;
               } else {
                 action[0] = 1;
                 if (bet > 0) {
@@ -336,6 +338,7 @@ public class PokerBot extends PokerPlayer {
         
         // Override removed to bring bust rate up to 20-30%
         
+        int raiseTo;
         switch (subAction) {
           case 0:
             action[0] = 1;
@@ -346,16 +349,22 @@ public class PokerBot extends PokerPlayer {
             break;
           case 1:
             action[0] = 3;
-            action[1] = (int) ((Math.random() * .6 + 2) * bet);
+            raiseTo = (int) ((Math.random() * .6 + 2) * bet);
+            raiseTo = Math.max(raiseTo, bet + lastRaise);
+            action[1] = raiseTo - prevBet;
             break;
           case 2:
             action[0] = 3;
-            action[1] = (int) ((Math.random() * 1.6 + 2.5) * bet);
+            raiseTo = (int) ((Math.random() * 1.6 + 2.5) * bet);
+            raiseTo = Math.max(raiseTo, bet + lastRaise);
+            action[1] = raiseTo - prevBet;
             break;
           case 3:
             double upper = (double) super.getChips() / bet;
             action[0] = 3;
-            action[1] = (int) ((Math.random() * (upper - 2 + 0.1) + 4) * bet);
+            raiseTo = (int) ((Math.random() * (upper - 2 + 0.1) + 4) * bet);
+            raiseTo = Math.max(raiseTo, bet + lastRaise);
+            action[1] = raiseTo - prevBet;
             break;
           case 4:
             if (!zeroBet)
@@ -373,7 +382,7 @@ public class PokerBot extends PokerPlayer {
     }
   }
 
-  private int[] godPreflop(int prevBet, int bet, int blind, PokerPlayer[] players, int seatIndex) {
+  private int[] godPreflop(int prevBet, int bet, int blind, int lastRaise, PokerPlayer[] players, int seatIndex) {
     int[] action = new int[2];
     int[] numhand = Deck.cardToInt(super.getHand());
     Arrays.sort(numhand);
@@ -441,7 +450,8 @@ public class PokerBot extends PokerPlayer {
         action[1] = Math.min(bet * 3, super.getChips());
       } else {
         action[0] = 3;
-        action[1] = Math.min(blind * 3, super.getChips());
+        int raiseTo = Math.min(Math.max(bet + lastRaise, blind * 3), super.getChips());
+        action[1] = raiseTo - prevBet;
       }
     } else if (bet > blind && isThinkingOpponentOnly) {
       // SPICY MODE: Active Defense Logic
@@ -479,12 +489,19 @@ public class PokerBot extends PokerPlayer {
       }
     }
     
+    if (action[0] == 3) {
+      int noise = (int)(Math.random() * 11) - 5; // Humanoid Noise: +/- 5 chips
+      int raiseTo = (prevBet + action[1]) + noise;
+      if (raiseTo <= bet) raiseTo = Math.min(super.getChips(), bet + lastRaise + (int)(Math.random() * 5));
+      action[1] = raiseTo - prevBet;
+    }
+    
     if (action[1] >= super.getChips()) { action[0] = 4; action[1] = super.getChips(); }
     cbetFlop = false; // Reset barrelling state for new hand
     return action;
   }
 
-  private int[] godPostflop(int prevBet, int bet, int blind, Card[] board, int potSize, PokerPlayer[] players, int seatIndex, int preflopAggressorIndex) {
+  private int[] godPostflop(int prevBet, int bet, int blind, int lastRaise, Card[] board, int potSize, PokerPlayer[] players, int seatIndex, int preflopAggressorIndex) {
     int[] action = new int[2];
     Card[] fullHand = new Card[5];
     if (board.length == 3) {
@@ -714,9 +731,14 @@ public class PokerBot extends PokerPlayer {
        actAmount = (int)(potSize * (1.5 + Math.random()));
     }
     
+    // Humanoid Noise: Adding +/- 5 chips to break predictable denominations
+    if (act == 3 && !minusOneActive) {
+       actAmount += (int)(Math.random() * 11) - 5;
+    }
+    
     if (dumbBotCount > 0 && act == 3 && myRank > 7 && !headsUpHand) act = 1; // Only eradicate bluffs in multi-player pots
-    if (act == 3 && actAmount <= bet) actAmount = bet * 2 + blind; // Ensure legal raise
-    if (act == 3 && actAmount == 0) actAmount = blind;
+    if (act == 3 && actAmount <= bet) actAmount = bet + lastRaise; // Ensure legal raise (Official Increment Rule)
+    if (act == 3 && actAmount == 0) actAmount = lastRaise;
     
     if (act == 3 && actAmount >= super.getChips() * 0.9 && !minusOneActive) { act = 4; } 
 
@@ -724,9 +746,9 @@ public class PokerBot extends PokerPlayer {
     if (predatoryMode && act == 2 && myRank <= 8) act = 1; 
 
     if (act == 4) { action[0] = 4; action[1] = super.getChips(); }
-    else if (act == 3) { action[0] = 3; action[1] = actAmount; }
+    else if (act == 3) { action[0] = 3; action[1] = actAmount - prevBet; }
     else if (act == 2) { action[0] = zeroBet ? 1 : 2; action[1] = 0; }
-    else { action[0] = 1; action[1] = zeroBet ? 0 : bet; } // Standardized to 'bet' (total) 1v1
+    else { action[0] = 1; action[1] = zeroBet ? 0 : bet - prevBet; } // Standardized increment
     
     if (action[1] >= super.getChips()) { action[0] = 4; action[1] = super.getChips(); }
     return action;

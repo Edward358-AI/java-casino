@@ -27,7 +27,7 @@ public class PokerPlayer extends Player {
     status = i;
   }
 
-  public int[] action(String round, int prevBet, int bet, int blind) {
+  public int[] action(String round, int prevBet, int bet, int blind, int lastRaise) {
     int[] action = new int[2];
     switch (round) {
       case "preflop":
@@ -66,11 +66,11 @@ public class PokerPlayer extends Player {
               break;
             case 3:
               int chips;
-              if (bet + blind < super.getChips()) {
+              if (bet + lastRaise < super.getChips()) {
                 chips = Player.getValidInt(
-                    "What would you like to raise the current bet to? Min - " + (bet + blind) + ", Max - "
+                    "What would you like to raise the current bet to? Min - " + (bet + lastRaise) + ", Max - "
                         + super.getChips(),
-                    bet + blind,
+                    bet + lastRaise,
                     super.getChips(), true);
               } else {
                 chips = Player.getValidInt(
@@ -124,11 +124,11 @@ public class PokerPlayer extends Player {
             case 3:
               int chips;
               if (bet != 0) {
-                if (bet + blind < super.getChips()) {
+                if (bet + lastRaise < super.getChips()) {
                   chips = Player.getValidInt(
-                      "What would you like to raise the current bet to? Min - " + (bet + blind) + ", Max - "
+                      "What would you like to raise the current bet to? Min - " + (bet + lastRaise) + ", Max - "
                           + super.getChips(),
-                      bet + blind,
+                      bet + lastRaise,
                       super.getChips(), true);
                 } else {
                   chips = Player.getValidInt(
@@ -139,9 +139,9 @@ public class PokerPlayer extends Player {
                 }
               } else {
                 chips = Player.getValidInt(
-                    "What would you like to raise the current bet to? Min - " + blind + ", Max - "
+                    "What would you like to raise the current bet to? Min - " + lastRaise + ", Max - "
                         + super.getChips(),
-                    blind,
+                    lastRaise,
                     super.getChips(), true);
 
               }

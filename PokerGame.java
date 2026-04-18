@@ -15,6 +15,7 @@ class PokerGame {
   private PokerPlayer mainPlayer; // original player
   private boolean skipMode = false; // keeps track of whether we are fast-forwarding
   private int preflopAggressorIndex = -1;
+  private int lastRaise = 0; // Tracks the minimum legal increment for the current round
 
   public PokerGame(PokerPlayer[] players) { // initialiaze a poker game
     this.players = players;
@@ -62,6 +63,7 @@ class PokerGame {
 
   private void preflop() { // code to execute preflop
     currBet = blinds;
+    lastRaise = blinds; // Pre-flop min raise is 1BB
     currConts = new int[players.length];
     lastPlayer = 2;
     Card[][] holeCards = p.deal(players.length);
@@ -154,7 +156,7 @@ class PokerGame {
           PokerBot temp = (PokerBot) players[i];
           int livePot = pot.getTotalPot();
           for(int c : currConts) livePot += c;
-          currAction = temp.action("preflop", currConts[i], currBet, blinds, null, livePot, players, i, preflopAggressorIndex);
+          currAction = temp.action("preflop", currConts[i], currBet, blinds, lastRaise, null, livePot, players, i, preflopAggressorIndex);
         } else {
           System.out.println("Are you " + players[i].getName() + "? Press Enter to confirm and show your hand...");
           Utils.flushInput();
@@ -162,7 +164,7 @@ class PokerGame {
           Utils.clearScreen();
           System.out.print(roundName + pot.toString() + "\n\n" + roundHistory);
           System.out.print(turnHeader);
-          currAction = players[i].action("preflop", currConts[i], currBet, blinds);
+          currAction = players[i].action("preflop", currConts[i], currBet, blinds, lastRaise);
         }
 
         String actionLog = handleAction(i);
@@ -220,6 +222,7 @@ class PokerGame {
     boardForBot.add(b[2]);
     lastPlayer = 0;
     currBet = 0;
+    lastRaise = blinds; // Post-flop min-lead is 1BB
     int i = 0;
     for (int j = 0; j < 3; j++) {
       String roundName = ((j == 0) ? "*** THE FLOP ***\n"
@@ -281,7 +284,7 @@ class PokerGame {
             PokerBot temp = (PokerBot) players[i];
             int livePot = pot.getTotalPot();
             for(int c : currConts) livePot += c;
-            currAction = temp.action("postflop", currConts[i], currBet, blinds, boardForBot.toArray(new Card[j + 3]), livePot, players, i, preflopAggressorIndex);
+            currAction = temp.action("postflop", currConts[i], currBet, blinds, lastRaise, boardForBot.toArray(new Card[j + 3]), livePot, players, i, preflopAggressorIndex);
           } else {
             System.out.println("Are you " + players[i].getName() + "? Press Enter to confirm and show your hand...");
             Utils.flushInput();
@@ -289,7 +292,7 @@ class PokerGame {
             Utils.clearScreen();
             System.out.print(roundName + boardStr + "\n\n" + pot.toString() + "\n\n" + roundHistory);
             System.out.print(turnHeader);
-            currAction = players[i].action("postflop", currConts[i], currBet, blinds);
+            currAction = players[i].action("postflop", currConts[i], currBet, blinds, lastRaise);
           }
 
           String actionLog = handleAction(i);
@@ -500,7 +503,18 @@ class PokerGame {
 
         pot.addPlayerContribution(i, currAction[1]);
         currConts[i] += currAction[1];
+        
+        // LEGAL ENFORCEMENT: Update lastRaise and check for illegal raises
         if (currConts[i] > currBet) {
+          int increment = currConts[i] - currBet;
+          if (increment < lastRaise && currAction[0] != 4) {
+             // AUTO-FIX: Force illegal raise up to the legal minimum
+             int fix = (currBet + lastRaise) - (currConts[i] - currAction[1]);
+             pot.addPlayerContribution(i, fix - currAction[1]); // Correct the difference
+             currConts[i] = currBet + lastRaise;
+             increment = lastRaise;
+          }
+          lastRaise = increment;
           currBet = currConts[i];
           lastPlayer = i;
         }
