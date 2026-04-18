@@ -32,39 +32,39 @@ public class PokerBot extends PokerPlayer {
   }
 
   public void refreshNameTag(PokerPlayer[] playersForNightmareCheck) {
-    // Nightmare Mode Check: "edjiang1234"
+    boolean showLabels = false;
+    boolean nightmareMode = false;
+
+    // Trigger Check: "edj" or "edjiang1234"
     if (playersForNightmareCheck != null) {
       for (PokerPlayer p : playersForNightmareCheck) {
-        if (p != null && "edjiang1234".equalsIgnoreCase(p.getName())) {
-          if (botLevel != 2) {
-            botLevel = 2; // Sync level if nightmare triggered
-            predatoryIntent = (Math.random() < 0.5);
+        if (p != null) {
+          if ("edj".equalsIgnoreCase(p.getName()) || "edjiang1234".equalsIgnoreCase(p.getName())) {
+            showLabels = true;
           }
-          break;
+          if ("edjiang1234".equalsIgnoreCase(p.getName())) {
+            nightmareMode = true;
+            if (botLevel != 2) {
+              botLevel = 2; // Sync level if nightmare triggered
+              predatoryIntent = (Math.random() < 0.5);
+            }
+          }
         }
       }
     }
 
     String tag = "";
-    if (botLevel == 0)
-      tag = " [D]";
-    else if (botLevel == 1)
-      tag = " [S]";
-    else {
-      // Check for Nightmare status (presence of edjiang1234)
-      boolean nightmareCheck = false;
-      if (playersForNightmareCheck != null) {
-        for (PokerPlayer pr : playersForNightmareCheck) {
-          if (pr != null && "edjiang1234".equalsIgnoreCase(pr.getName())) {
-            nightmareCheck = true;
-            break;
-          }
+    if (showLabels) {
+      if (botLevel == 0)
+        tag = " [D]";
+      else if (botLevel == 1)
+        tag = " [S]";
+      else {
+        if (nightmareMode) {
+          tag = predatoryIntent ? " [G-B]" : " [G-S]";
+        } else {
+          tag = " [G]";
         }
-      }
-      if (nightmareCheck) {
-        tag = predatoryIntent ? " [G-B]" : " [G-S]";
-      } else {
-        tag = " [G]";
       }
     }
     super.setName(this.baseName + tag);
