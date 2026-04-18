@@ -46,6 +46,12 @@ The God Bot is a mathematically rigorous entity that assesses Game Theory metric
 ### General Mechanics (Game Theory / GTO)
 *   Computes true **Equity %** using the Rule of 4 & 2 equations.
 *   Concludes actions exclusively on $+EV$ logic by mapping calculated equity directly against exact **Pot Odds (`Cost / Pot`)**.
+*   **GTO Hardening (Balanced Ranges)**: To eliminate range transparency, the God Bot no longer plays a purely tight early game.
+    *   **Syncopated Early Range**: Adopts the Smart Bot's baseline (all pairs, wide premiums) but adds **Suited Wheel Aces (A2s-A9s)** to its Under-The-Gun (UTG) open-raise range. This prevents human players from "pricing out" the bot on low-card or wheel-straight boards.
+    *   **15% Mixed Strategy Anomaly**: Explicitly introduces a 15% `rNG` chance to raise with "GTO Gappers" (suited connectors like 7-8s or 5-6s) from any position. This ensures the bot's range is mathematically "un-solvable" by human observation.
+*   **Post-Flop Deception Suite**:
+    *   **Aggressive Semi-Bluffing**: Identifies 4-to-a-flush or 4-to-a-straight draws. In 40% of cases, the bot will execute a lead-bet or aggressive check-raise rather than a passive call, maximizing its fold equity and "bluffing" with high outs.
+    *   **Monster Trapping (The Slow Play)**: If the bot holds a hand of Rank 3 or lower (Full House+), it triggers a 20% "Check-Trap" frequency. It will check-call the flop or turn to induce "Maniac" bluffs from opponents, only unleashing its massive overbets on the river.
 *   **Elite Board Awareness**: Scans aggressively for board textures (Paired boards, 4-Straights, 4-Flushes). If the board creates a massive scare and it only holds Top Pair, it performs defensive check-folds against big bets.
 *   **Multi-Street Aggression**: Maintains memory of its actions. C-bets 90% of the time on Ace-High flops. If it raised the flop, it executes **Triple Barrelling** (firing 70% of the time on Turn face-cards) to bully opponents regardless of its actual hand.
 *   **Nut Blockers**: If the God bot holds the Ace of a flush suit on board (but does not have the flush itself), it will intentionally shove its entire stack, blocking the opponent from holding the nuts.

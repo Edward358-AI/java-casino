@@ -23,15 +23,29 @@ public class PokerBot extends PokerPlayer {
       botLevel = 2;
 
     // Nightmare Mode Check: "edjiang1234"
+    boolean isNightmare = false;
     if (currentPlayers != null) {
       for (PokerPlayer p : currentPlayers) {
         if (p != null && "edjiang1234".equalsIgnoreCase(p.getName())) {
           botLevel = 2; // Force God Tier
           predatoryIntent = (Math.random() < 0.5); // 50% chance to be "The Bully"
+          isNightmare = true;
           break;
         }
       }
     }
+
+    String tag = "";
+    if (botLevel == 0) tag = " [D]";
+    else if (botLevel == 1) tag = " [S]";
+    else {
+      if (isNightmare) {
+        tag = predatoryIntent ? " [G-B]" : " [G-S]";
+      } else {
+        tag = " [G]";
+      }
+    }
+    super.setName(super.getName() + tag);
 
     if (super.getName().equals("Aventurine")) {
       opMode = true;
@@ -376,14 +390,21 @@ public class PokerBot extends PokerPlayer {
     }
     
     boolean stealRange = paired || numhand[1] >= 14 || (suited && numhand[1] - numhand[0] <= 4);
-    boolean earlyRange = premium || (paired && numhand[0] >= 8);
+    
+    // GTO Hardening: Balanced Early Range (Matching Smart Bot + Suited Wheel Aces)
+    boolean wheelAce = (suited && numhand[1] == 14 && numhand[0] >= 2 && numhand[0] <= 9);
+    boolean faceCards = (numhand[1] >= 13 && numhand[0] >= 10) || (numhand[1] == 12 && numhand[0] >= 11);
+    boolean earlyRange = premium || paired || faceCards || wheelAce;
+    
+    // Mixed Strategy Anomaly (15%): Playing GTO Gappers/Trash from any position
+    boolean mixedStrategy = (Math.random() < 0.15 && (suited && numhand[1] - numhand[0] <= 5));
     
     // Heads-Up Tournament Protocol: Any Ace, King, Queen or Pair becomes Premium
     if (headsUpTable) {
         if (numhand[1] >= 12 || paired) premium = true;
     }
 
-    if (premium || (chipleader && shortStacks && stealRange)) {
+    if (premium || (chipleader && shortStacks && stealRange) || mixedStrategy) {
       if (bet > blind) {
         action[0] = 3;
         action[1] = Math.min(bet * 3, super.getChips());
@@ -548,9 +569,14 @@ public class PokerBot extends PokerPlayer {
          if (zeroBet) act = 1; else act = 2;
       }
     } else if (myRank <= 3) { 
+      // Trapping Logic (Slow-play): 20% chance to check/call monster hands to bait bluffs
+      boolean trapMode = (Math.random() < 0.20 && (board.length == 3 || board.length == 4));
+      
       if (dumbBotCount > 0 && largestDumbStack > 0) {
           act = 3; actAmount = Math.max(potSize, largestDumbStack - 1); // MINUS ONE EXPLOIT
           minusOneActive = true;
+      } else if (trapMode) {
+          if (zeroBet) act = 1; else { act = 1; actAmount = bet - prevBet; }
       } else {
           double valueMult = (depthRatio > 1.5) ? 1.0 : 0.75; // Big Stack Bully widening
           if (zeroBet) { act = 3; actAmount = (int)(potSize * valueMult); } 
@@ -567,6 +593,9 @@ public class PokerBot extends PokerPlayer {
         else { act = 3; actAmount = bet * 2; }
       }
     } else if (myRank <= 7 || draws[0] || draws[1]) { 
+      // GTO Hardening: Semi-Bluffing (40% chance to lead draws aggressively)
+      boolean semiBluff = ((draws[0] || draws[1]) && Math.random() < 0.40);
+      
       // Elite Range Advantage: Ace-high boards C-bet 90% of the time
       double cbetFreq = (aceHighBoard) ? 0.90 : 0.65;
       double barrelFreq = 0.70;
@@ -582,9 +611,13 @@ public class PokerBot extends PokerPlayer {
       if (zeroBet && cbet && Math.random() < cbetFreq) {
          act = 3; actAmount = (int)(Math.max(potSize * 0.4, blind));
          if (board.length == 3) cbetFlop = true;
+      } else if (zeroBet && semiBluff) {
+         act = 3; actAmount = (int)(potSize * 0.75); // Lead aggressively on semi-bluff
       } else if (board.length == 4 && cbetFlop && board[3].getNum() >= 11 && Math.random() < barrelFreq) {
          // Triple Barreling: Turn is a face card and we C-bet flop
          act = 3; actAmount = (int)(potSize * 0.6);
+      } else if (!zeroBet && semiBluff) {
+         act = 3; actAmount = bet * 3; // Aggressive Raise on semi-bluff
       } else if (!zeroBet && (draws[0] || draws[1]) && equity > potOdds) {
          act = 1; actAmount = bet - prevBet;
       } else if (!zeroBet && costToCall <= super.getChips() * 0.20 && costToCall > 0) { 
