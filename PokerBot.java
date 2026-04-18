@@ -101,8 +101,8 @@ public class PokerBot extends PokerPlayer {
           action[1] = super.getChips();
         }
       } else {
-        // Dumb Bot Extinction Rule: 60% Shove, 40% Fold
-        if (Math.random() < 0.6) {
+        // Dumb Bot Extinction Rule: 35% Call, 65% Fold
+        if (Math.random() < 0.35) {
           action[0] = 4;
           action[1] = super.getChips();
         } else {
