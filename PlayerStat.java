@@ -85,13 +85,8 @@ public class PlayerStat {
   }
 
   public String toString() {
-    return String.format("""
-        Hands played: %1$d
-        Total amount bet: %2$d
-        Total amount won: %3$d
-        Total amount lost: %4$d
-        Biggest win: %5$d
-        No. of times all in: %6$d
-        """, hands, totalBet, totalWin, totalLoss, biggestGain, allInTimes);
+    return String.format(
+        "Hands played: %1$d\nTotal amount bet: %2$d\nTotal amount won: %3$d\nTotal amount lost: %4$d\nBiggest win: %5$d\nNo. of times all in: %6$d\n",
+        hands, totalBet, totalWin, totalLoss, biggestGain, allInTimes);
   }
 }
