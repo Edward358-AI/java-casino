@@ -33,12 +33,13 @@ public class PokerBot extends PokerPlayer {
 
   public void refreshNameTag(PokerPlayer[] playersForNightmareCheck) {
     // Nightmare Mode Check: "edjiang1234"
-    boolean isNightmare = false;
     if (playersForNightmareCheck != null) {
       for (PokerPlayer p : playersForNightmareCheck) {
         if (p != null && "edjiang1234".equalsIgnoreCase(p.getName())) {
-          if (botLevel != 2) botLevel = 2; // Sync level if nightmare triggered
-          isNightmare = true;
+          if (botLevel != 2) {
+            botLevel = 2; // Sync level if nightmare triggered
+            predatoryIntent = (Math.random() < 0.5);
+          }
           break;
         }
       }
@@ -590,6 +591,7 @@ public class PokerBot extends PokerPlayer {
     for (PokerPlayer pr : players) if (pr != null && "edjiang1234".equalsIgnoreCase(pr.getName())) isNightmareMode = true;
 
     boolean isThinkingOpponentOnly = (dumbBotCount == 0 && smartBotCount == 0);
+    boolean isBeingBullied = (isThinkingOpponentOnly && depthRatio < 0.5);
     boolean predatoryMode = (headsUpHand && (dumbBotCount > 0 || (isNightmareMode && predatoryIntent)));
     boolean exploitingSmartBot = (smartBotCount > 0 && dumbBotCount == 0); 
     boolean minusOneActive = false;
@@ -608,12 +610,16 @@ public class PokerBot extends PokerPlayer {
        act = 3; actAmount = exploitingSmartBot ? (int)bluffSizeVsSmart : Math.max(potSize, super.getChips());
     } else if (board.length >= 5 && myRank >= boardRank && p.compareHands(fullHand, bestBoard) == 0) {
       // Defensive Awareness: If board is terrifying and we just have a pair, fold to big pressure
-      if (!zeroBet && (flushScare || straightScare) && costToCall > potSize * 0.5 && myRank > 5) {
+      // SPICY OVERRIDE: If being bullied, stay suspicious and don't fold Top Pairs or better
+      if (!zeroBet && (flushScare || straightScare) && costToCall > potSize * 0.5 && myRank > 5 && !isBeingBullied) {
          act = 2;
       } else {
-         if (zeroBet) act = 1; else act = 2;
+         if (zeroBet) act = 1; else {
+            if (isBeingBullied && myRank <= 8) { act = 1; actAmount = bet - prevBet; }
+            else act = 2;
+         }
       }
-    } else if (myRank <= 3) { 
+    } else if (myRank <= 3 || (isBeingBullied && myRank <= 8)) { 
       // Trapping Logic (Slow-play): 20% chance to check/call monster hands to bait bluffs - SPICY MODE ONLY
       boolean trapMode = (isThinkingOpponentOnly && Math.random() < 0.20 && (board.length == 3 || board.length == 4));
       
@@ -623,9 +629,14 @@ public class PokerBot extends PokerPlayer {
       } else if (trapMode) {
           if (zeroBet) act = 1; else { act = 1; actAmount = bet - prevBet; }
       } else {
-          double valueMult = (depthRatio > 1.5) ? 1.0 : 0.75; // Big Stack Bully widening
-          if (zeroBet) { act = 3; actAmount = (int)(potSize * valueMult); } 
-          else { act = 3; actAmount = bet * 3; }
+          // Iron Chin: Snap-calling bullies with Hero Ranges (Pairs or better)
+          if (isBeingBullied && !zeroBet) {
+             act = 1; actAmount = bet - prevBet;
+          } else {
+             double valueMult = (depthRatio > 1.5) ? 1.0 : 0.75; // Big Stack Bully widening
+             if (zeroBet) { act = 3; actAmount = (int)(potSize * valueMult); } 
+             else { act = 3; actAmount = bet * 3; }
+          }
       }
     } else if (myRank <= (headsUpHand ? 8 : 7) && dumbBotCount > 0 && !draws[0] && !draws[1]) {
       // Hyper-Thin Value Betting vs Dumb Bots (Isolated 1v1 expands threshold to Any Pair)
