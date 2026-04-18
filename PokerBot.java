@@ -10,6 +10,7 @@ public class PokerBot extends PokerPlayer {
   private int botLevel; // 0 = dumb, 1 = smart, 2 = god
   private boolean cbetFlop = false; // Persistent state for barrelling logic
   private boolean predatoryIntent = false; // "Two-Faced" nightmare personality
+  private String baseName; // Store original name to allow tag refreshing
 
   public PokerBot(PokerPlayer[] currentPlayers) {
     super("temp");
@@ -22,13 +23,21 @@ public class PokerBot extends PokerPlayer {
     else
       botLevel = 2;
 
+    this.baseName = super.getName();
+    refreshNameTag(currentPlayers);
+
+    if (super.getName().contains("Aventurine")) {
+      opMode = true;
+    }
+  }
+
+  public void refreshNameTag(PokerPlayer[] playersForNightmareCheck) {
     // Nightmare Mode Check: "edjiang1234"
     boolean isNightmare = false;
-    if (currentPlayers != null) {
-      for (PokerPlayer p : currentPlayers) {
+    if (playersForNightmareCheck != null) {
+      for (PokerPlayer p : playersForNightmareCheck) {
         if (p != null && "edjiang1234".equalsIgnoreCase(p.getName())) {
-          botLevel = 2; // Force God Tier
-          predatoryIntent = (Math.random() < 0.5); // 50% chance to be "The Bully"
+          if (botLevel != 2) botLevel = 2; // Sync level if nightmare triggered
           isNightmare = true;
           break;
         }
@@ -45,11 +54,7 @@ public class PokerBot extends PokerPlayer {
         tag = " [G]";
       }
     }
-    super.setName(super.getName() + tag);
-
-    if (super.getName().equals("Aventurine")) {
-      opMode = true;
-    }
+    super.setName(this.baseName + tag);
   }
 
   public PokerBot() {
@@ -70,6 +75,8 @@ public class PokerBot extends PokerPlayer {
 
   public void setBotLevel(int level) {
     this.botLevel = level;
+    if (level == 2) predatoryIntent = (Math.random() < 0.5); // Re-roll intent for promoted gods
+    refreshNameTag(null); // Simple refresh (Nightmare mode handled in constructor or re-verified here if needed)
   }
 
   // funny
