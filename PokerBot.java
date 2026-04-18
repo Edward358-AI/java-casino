@@ -12,6 +12,9 @@ public class PokerBot extends PokerPlayer {
   private boolean predatoryIntent = false; // "Two-Faced" nightmare personality
   private String baseName; // Store original name to allow tag refreshing
 
+  private boolean revealTags = false; // Persistent memory for trigger detection
+  private boolean nightmareActive = false; // Persistent memory for nightmare mode
+
   public PokerBot(PokerPlayer[] currentPlayers) {
     super("temp");
     randomName(currentPlayers);
@@ -32,18 +35,17 @@ public class PokerBot extends PokerPlayer {
   }
 
   public void refreshNameTag(PokerPlayer[] playersForNightmareCheck) {
-    boolean showLabels = false;
-    boolean nightmareMode = false;
-
-    // Trigger Check: "edj" or "edjiang1234"
+    // Trigger Check: Only update global state if a player list is provided
     if (playersForNightmareCheck != null) {
+      this.revealTags = false;
+      this.nightmareActive = false;
       for (PokerPlayer p : playersForNightmareCheck) {
         if (p != null) {
           if ("edj".equalsIgnoreCase(p.getName()) || "edjiang1234".equalsIgnoreCase(p.getName())) {
-            showLabels = true;
+            this.revealTags = true;
           }
           if ("edjiang1234".equalsIgnoreCase(p.getName())) {
-            nightmareMode = true;
+            this.nightmareActive = true;
             if (botLevel != 2) {
               botLevel = 2; // Sync level if nightmare triggered
               predatoryIntent = (Math.random() < 0.5);
@@ -54,13 +56,13 @@ public class PokerBot extends PokerPlayer {
     }
 
     String tag = "";
-    if (showLabels) {
+    if (this.revealTags) {
       if (botLevel == 0)
         tag = " [D]";
       else if (botLevel == 1)
         tag = " [S]";
       else {
-        if (nightmareMode) {
+        if (this.nightmareActive) {
           tag = predatoryIntent ? " [G-B]" : " [G-S]";
         } else {
           tag = " [G]";
