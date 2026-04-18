@@ -431,6 +431,9 @@ public class PokerBot extends PokerPlayer {
         if (numhand[1] >= 12 || paired) premium = true;
     }
 
+    // Fortress Defense: Active Defensive Ranges
+    boolean defenseRange = earlyRange || stealRange;
+    
     if (premium || (chipleader && shortStacks && stealRange) || mixedStrategy) {
       if (bet > blind) {
         action[0] = 3;
@@ -439,12 +442,27 @@ public class PokerBot extends PokerPlayer {
         action[0] = 3;
         action[1] = Math.min(blind * 3, super.getChips());
       }
+    } else if (bet > blind && isThinkingOpponentOnly) {
+      // SPICY MODE: Active Defense Logic
+      double threeBetChance = 0.35; // 35% chance to re-raise bluffs
+      
+      if (defenseRange && Math.random() < threeBetChance) {
+          action[0] = 3; action[1] = Math.min(bet * 3, super.getChips()); // Balanced 3-Bet
+      } else if (seatIndex == 1 && bet <= blind * 4.5 && defenseRange) {
+          action[0] = 1; action[1] = bet - prevBet; // Big Blind Defense (Sticky Call)
+      } else if (latePos && bet <= blind * 3.5 && (paired || wheelAce)) {
+          action[0] = 1; action[1] = bet - prevBet; // Positional Flatting (Call in position)
+      } else if (headsUpTable) {
+          action[0] = 3; action[1] = Math.max(bet * 3, blind * 3); // Survival Re-raise
+      } else {
+          action[0] = 2; action[1] = 0; // Still fold trash
+      }
     } else if (unraised && latePos && stealRange) {
       action[0] = 3;
       action[1] = Math.min(blind * 3, super.getChips());
     } else if (unraised && inBlinds) {
       if (bet <= super.getChips() / 4) {
-        action[0] = bet > 0 ? 1 : 1;
+        action[0] = 1;
         action[1] = bet > 0 ? bet - prevBet : 0;
       } else {
          action[0] = 2; action[1] = 0;
