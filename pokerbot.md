@@ -81,8 +81,8 @@ The following table tracks the "Tournament Death March"—a 100-hand simulation 
 
 | AI Tier | Metric Category | **Simulated Bust Rate** | Survival Concept |
 | :--- | :--- | :--- | :--- |
-| **Dumb (Level 0)** | *The Table Economy* | **97.64%** | Total exhaustion over 100 hands |
-| **Smart (Level 1)** | *The Rational Grinder* | **7.03%** | Moderate vulnerability to God Bot exploits |
+| **Dumb (Level 0)** | *The Table Economy* | **72.27%** | Extreme vulnerability to God Bot aggression |
+| **Smart (Level 1)** | *The Rational Grinder* | **0.48%** | Highly resilient but mathematically capped |
 | **God (Level 2)** | *The Apex Predator* | **0.00%** | Absolute mathematical immortality |
 
 ---
@@ -92,14 +92,14 @@ To verify the raw power gaps between bot tiers, a series of **30,000 matches** (
 
 | Matchup | Winner | **Win %** | Loser | **Win %** |
 | :--- | :--- | :--- | :--- | :--- |
-| **Dumb vs. God** | 🔴 **God Bot** | **99.92%** | 🟢 Dumb Bot | **0.08%** |
-| **Dumb vs. Smart** | 🔵 **Smart Bot** | **96.64%** | 🟢 Dumb Bot | **3.36%** |
-| **Smart vs. God** | 🔴 **God Bot** | **92.42%** | 🔵 Smart Bot | **7.58%** |
+| **Dumb vs. God** | 🔴 **God Bot** | **99.91%** | 🟢 Dumb Bot | **0.09%** |
+| **Dumb vs. Smart** | 🔵 **Smart Bot** | **97.21%** | 🟢 Dumb Bot | **2.79%** |
+| **Smart vs. God** | 🔴 **God Bot** | **92.28%** | 🔵 Smart Bot | **7.72%** |
 
 ### 👑 The "Nuclear Hegemony" Fix
 Following advanced testing and simulation re-calibration, the God Bot has been upgraded to **Nuclear Overlord** status.
 *   **The Problem**: Previously, elite bots were surrendering blinds in 1v1 due to over-tight ranges.
 *   **The Fix**: God Bots now execute 100% blind-defense and relentless post-flop aggression in 1v1 duels. This has pushed the win-rate to the physical limit of the game (99.9%).
-*   **God vs. Smart Outcome**: The God Bot now maintains a **92.42% dominance** over the Smart Bot when isolated. This confirms that Predatory Exploitation works even better against competent players who respect aggression.
+*   **God vs. Smart Outcome**: The God Bot now maintains a **92.28% dominance** over the Smart Bot when isolated. Even with its wider, "Balanced" pre-flop range, the God Bot's superior deceptive logic (Traps and Semi-Bluffs) ensures it remains the definitive final boss of the system.
 
 
