@@ -4,3 +4,14 @@
 /lib/
 /src/test/
 *.class
+
+Chunk123TelemetryVerification.java
+Chunk4QuickCheck.java
+Chunk5QuickCheck.java
+Chunk6QuickCheck.java
+Phase8VerificationSuite.java
+*.orig
+*.rej
+*.patch
+track*.sh
+get_imports.sh

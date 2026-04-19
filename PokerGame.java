@@ -16,6 +16,22 @@ class PokerGame {
   private boolean skipMode = false; // keeps track of whether we are fast-forwarding
   private int preflopAggressorIndex = -1;
   private int lastRaise = 0; // Tracks the minimum legal increment for the current round
+  private static final double PREFLOP_EMA_ALPHA = 0.35; // >80% weight in roughly last 5 actions
+  private static final double POSTFLOP_EMA_ALPHA = 0.35; // >80% weight in roughly last 5 actions
+  private boolean[] preflopVPIPFlags;
+  private boolean[] preflopPFRFlags;
+  private int[][] postflopAggressionActions;
+  private int[][] postflopAggressionOpportunities;
+  private boolean[] sawFlopThisHand;
+  private boolean[] foldToCbetOpportunity;
+  private boolean[] foldedToCbet;
+  private boolean cbetFiredOnFlop = false;
+  private int cbetAggressorIndex = -1;
+  
+  // PHASE 8 COGNITIVE MATRIX: Street Tracking State
+  // 0 = Preflop, 1 = Flop, 2 = Turn, 3 = River
+  public int currentStreet = 0;
+  public boolean isShowdown = false;
 
   public PokerGame(PokerPlayer[] players) { // initialiaze a poker game
     this.players = players;
@@ -62,13 +78,29 @@ class PokerGame {
   }
 
   private void preflop() { // code to execute preflop
+    currentStreet = 0;
+    isShowdown = false; // PHASE 8: Reset showdown state
     currBet = blinds;
     lastRaise = blinds; // Pre-flop min raise is 1BB
     currConts = new int[players.length];
+    preflopVPIPFlags = new boolean[players.length];
+    preflopPFRFlags = new boolean[players.length];
+    postflopAggressionActions = new int[players.length][4];
+    postflopAggressionOpportunities = new int[players.length][4];
+    sawFlopThisHand = new boolean[players.length];
+    foldToCbetOpportunity = new boolean[players.length];
+    foldedToCbet = new boolean[players.length];
+    cbetFiredOnFlop = false;
+    cbetAggressorIndex = -1;
     lastPlayer = 2;
     Card[][] holeCards = p.deal(players.length);
     for (int i = 0; i < players.length; i++) {
       players[i].setHand(holeCards[i]);
+      // PHASE 8 COGNITIVE MATRIX: Increment hands played for tracked profiles
+      if (shouldTrackCognitivePlayer(players[i])) {
+        String pName = players[i].getName();
+        PokerBot.getOrCreateCognitiveProfile(pName).handsPlayed++;
+      }
     }
     currAction = new int[2];
 
@@ -189,6 +221,7 @@ class PokerGame {
       else
         i++;
     } while (i != lastPlayer && stillIn() > 1);
+    finalizePreflopTelemetry();
     Utils.clearScreen();
     System.out.print(roundName + pot.toString() + "\n\n" + roundHistory);
     if (!skipMode && realPlayersIn() == 0) {
@@ -215,6 +248,11 @@ class PokerGame {
 
   private void postflop() { // all code to execute postflop, including flop, turn and river
     currConts = new int[players.length];
+    for (int idx = 0; idx < players.length; idx++) {
+      sawFlopThisHand[idx] = players[idx].inHand();
+    }
+    cbetFiredOnFlop = false;
+    cbetAggressorIndex = -1;
     Card[] b = p.deal();
     ArrayList<Card> boardForBot = new ArrayList<>();
     boardForBot.add(b[0]);
@@ -225,6 +263,7 @@ class PokerGame {
     lastRaise = blinds; // Post-flop min-lead is 1BB
     int i = 0;
     for (int j = 0; j < 3; j++) {
+      currentStreet = j + 1; // PHASE 8: 1=Flop, 2=Turn, 3=River
       String roundName = ((j == 0) ? "*** THE FLOP ***\n"
           : ((j == 1) ? "*** THE TURN (4th Street) ***\n" : "*** THE RIVER (5th Street) ***\n"));
       String realPlayerOrder = "Real player order: ";
@@ -352,6 +391,8 @@ class PokerGame {
   }
 
   private void showdown(int c) { // assign winnner at end of hand
+    isShowdown = (c == 1); // PHASE 8: Flag if went to showdown
+    finalizePostflopTelemetry(c);
     int[] stats = pot.assignWinner(p, c, mainPlayer);
     if (stats[0] == 1) {
       mp.addWin(stats[1]);
@@ -459,9 +500,138 @@ class PokerGame {
       endGame(true);
   }
 
+  private boolean shouldTrackCognitivePlayer(PokerPlayer player) {
+    if (player == null)
+      return false;
+    if (!(player instanceof PokerBot))
+      return true; // Always track humans
+    if (PokerBot.testLearnFromBots)
+      return true; // Test mode: include Dumb/Smart bots too
+    return ((PokerBot) player).getBotLevel() == 2; // Production mode: only God bots
+  }
+
+  private void markPreflopActionForTelemetry(int playerIndex, int preActionTableBet, int preActionContribution, int paid) {
+    if (currentStreet != 0 || preflopVPIPFlags == null || preflopPFRFlags == null)
+      return;
+    if (playerIndex < 0 || playerIndex >= players.length)
+      return;
+    if (!shouldTrackCognitivePlayer(players[playerIndex]))
+      return;
+
+    boolean contributed = paid > 0 && currConts[playerIndex] > preActionContribution;
+    boolean isAggressiveAction = (currAction[0] == 3 || currAction[0] == 4);
+    boolean isRaise = isAggressiveAction && currConts[playerIndex] > preActionTableBet;
+
+    if (contributed && (currAction[0] == 1 || isAggressiveAction)) {
+      preflopVPIPFlags[playerIndex] = true;
+    }
+    if (isRaise) {
+      preflopPFRFlags[playerIndex] = true;
+      preflopVPIPFlags[playerIndex] = true;
+    }
+  }
+
+  private void finalizePreflopTelemetry() {
+    if (preflopVPIPFlags == null || preflopPFRFlags == null)
+      return;
+
+    for (int i = 0; i < players.length; i++) {
+      if (!shouldTrackCognitivePlayer(players[i]))
+        continue;
+      String pName = players[i].getName();
+      PokerBot.CognitiveProfile profile = PokerBot.getOrCreateCognitiveProfile(pName);
+      profile.updatePreflopTelemetry(preflopVPIPFlags[i], preflopPFRFlags[i], PREFLOP_EMA_ALPHA);
+    }
+
+    preflopVPIPFlags = null;
+    preflopPFRFlags = null;
+  }
+
+  private String getAFqStreetStatKey(int street) {
+    if (street == 1)
+      return "AFq_Flop";
+    if (street == 2)
+      return "AFq_Turn";
+    if (street == 3)
+      return "AFq_River";
+    return "AFq_Preflop";
+  }
+
+  private void markPostflopActionForTelemetry(int playerIndex, int preActionTableBet, int preActionContribution, int paid) {
+    if (currentStreet < 1 || currentStreet > 3)
+      return;
+    if (postflopAggressionActions == null || postflopAggressionOpportunities == null)
+      return;
+    if (playerIndex < 0 || playerIndex >= players.length)
+      return;
+    if (!shouldTrackCognitivePlayer(players[playerIndex]))
+      return;
+
+    boolean isAggressiveAction = (currAction[0] == 3 || currAction[0] == 4) && currConts[playerIndex] > preActionTableBet;
+    boolean isCall = (currAction[0] == 1 && paid > 0);
+    boolean isFoldFacingBet = (currAction[0] == 2 && preActionTableBet > preActionContribution);
+
+    if (isAggressiveAction || isCall || isFoldFacingBet) {
+      postflopAggressionOpportunities[playerIndex][currentStreet]++;
+      if (isAggressiveAction)
+        postflopAggressionActions[playerIndex][currentStreet]++;
+    }
+
+    if (currentStreet == 1) {
+      if (!cbetFiredOnFlop && preActionTableBet == 0 && playerIndex == preflopAggressorIndex && isAggressiveAction) {
+        cbetFiredOnFlop = true;
+        cbetAggressorIndex = playerIndex;
+      }
+      if (cbetFiredOnFlop && playerIndex != cbetAggressorIndex && preActionTableBet > preActionContribution) {
+        foldToCbetOpportunity[playerIndex] = true;
+        if (currAction[0] == 2)
+          foldedToCbet[playerIndex] = true;
+      }
+    }
+  }
+
+  private void finalizePostflopTelemetry(int showdownMode) {
+    if (postflopAggressionActions == null || postflopAggressionOpportunities == null)
+      return;
+
+    for (int i = 0; i < players.length; i++) {
+      if (!shouldTrackCognitivePlayer(players[i]))
+        continue;
+      String pName = players[i].getName();
+      PokerBot.CognitiveProfile profile = PokerBot.getOrCreateCognitiveProfile(pName);
+
+      for (int street = 1; street <= 3; street++) {
+        int opps = postflopAggressionOpportunities[i][street];
+        if (opps > 0) {
+          double afqValue = (double) postflopAggressionActions[i][street] / opps;
+          profile.updateEMA(getAFqStreetStatKey(street), afqValue, POSTFLOP_EMA_ALPHA);
+        }
+      }
+
+      if (foldToCbetOpportunity[i]) {
+        profile.updateEMA("FoldToCBet", foldedToCbet[i] ? 1.0 : 0.0, POSTFLOP_EMA_ALPHA);
+      }
+
+      if (sawFlopThisHand != null && sawFlopThisHand[i]) {
+        boolean reachedShowdown = (showdownMode == 1 && players[i].inHand());
+        profile.updateEMA("WTSD", reachedShowdown ? 1.0 : 0.0, POSTFLOP_EMA_ALPHA);
+      }
+    }
+
+    postflopAggressionActions = null;
+    postflopAggressionOpportunities = null;
+    sawFlopThisHand = null;
+    foldToCbetOpportunity = null;
+    foldedToCbet = null;
+    cbetFiredOnFlop = false;
+    cbetAggressorIndex = -1;
+  }
+
   private String handleAction(int i) { // do certain things based on a player's action
     String log = "";
     int paid = 0;
+    int preActionTableBet = currBet;
+    int preActionContribution = currConts[i];
     
     switch (currAction[0]) {
       case 1: // CALL/CHECK
@@ -470,10 +640,10 @@ class PokerGame {
         if (players[i] == mainPlayer) mp.addBet(paid);
         
         if (players[i].status() == 2) {
-          if (paid > 0 || currBet > 0) log = players[i].getName() + " in big blind CALLS FOR ✨" + currConts[i] + ".";
+          if (paid > 0) log = players[i].getName() + " in big blind CALLS FOR ✨" + currConts[i] + ".";
           else log = players[i].getName() + " in big blind CHECKS.";
         } else {
-          if (paid > 0 || currBet > 0) log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "CALLS FOR ✨" + currConts[i] + ".";
+          if (paid > 0) log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "CALLS FOR ✨" + currConts[i] + ".";
           else log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "CHECKS.";
         }
         break;
@@ -502,15 +672,29 @@ class PokerGame {
         // Update table bet state
         if (currConts[i] > currBet) {
           int increment = currConts[i] - currBet;
-          // Only reopen betting (update lastPlayer) if it's a FULL raise
+          lastPlayer = i; // Ensure everyone responds to the new bet amount
+          // Only change the minimum raise size if it's a FULL raise
           if (increment >= lastRaise) {
               lastRaise = increment;
-              lastPlayer = i;
+          }
+
+          // PHASE 8 COGNITIVE MATRIX TRACKING (Only run for Humans)
+          if (!(players[i] instanceof PokerBot)) {
+             String pName = players[i].getName();
+             PokerBot.CognitiveProfile profile = PokerBot.getOrCreateCognitiveProfile(pName);
+             // Massive overbets or jams
+             if (currAction[0] == 4 || increment > currBet * 1.5) {
+               profile.aggressiveActions += 2;
+             } else {
+               profile.aggressiveActions += 1;
+             }
           }
           currBet = currConts[i];
         }
         break;
     }
+    markPreflopActionForTelemetry(i, preActionTableBet, preActionContribution, paid);
+    markPostflopActionForTelemetry(i, preActionTableBet, preActionContribution, paid);
     return log;
   }
 
