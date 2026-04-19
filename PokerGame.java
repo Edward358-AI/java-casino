@@ -103,6 +103,9 @@ class PokerGame {
   }
 
   private String getTransparencySnapshot(String phase, Card[] board, int actingIndex) {
+    if (!BotDiagnostics.enabled()) {
+      return "";
+    }
     StringBuilder sb = new StringBuilder();
     String boardText = (board == null) ? "(preflop)" : cardsToString(board);
     sb.append("[TABLE TRACE][").append(phase).append("] board=").append(boardText).append(", pot=").append(pot.getTotalPot())
