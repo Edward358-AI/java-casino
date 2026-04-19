@@ -1,7 +1,21 @@
 // import java.util.*;
 
 public class Main {
+  private static void configureDiagnostics(String[] args) {
+    for (String arg : args) {
+      if (arg == null) {
+        continue;
+      }
+
+      if (arg.equalsIgnoreCase("--diag")) {
+        System.setProperty("poker.diag", "true");
+      }
+    }
+  }
+
   public static void main(String[] args) {
+    configureDiagnostics(args);
+
     Casino casino = new Casino();
     casino.start();
 

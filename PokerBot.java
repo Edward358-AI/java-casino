@@ -282,6 +282,24 @@ public class PokerBot extends PokerPlayer {
     return db.get(playerName);
   }
 
+  public static void updatePreflopTelemetryTracked(String playerName, boolean vpip, boolean pfr, double alpha) {
+    CognitiveProfile profile = getOrCreateCognitiveProfile(playerName);
+    CognitiveArchetype before = profile.getArchetype();
+    profile.updatePreflopTelemetry(vpip, pfr, alpha);
+    CognitiveArchetype after = profile.getArchetype();
+    BotDiagnostics.recordArchetypeShift(playerName, before, after, profile, "preflopTelemetry");
+    BotDiagnostics.recordProfileSnapshot(playerName, profile, "preflopTelemetry");
+  }
+
+  public static void updateCognitiveStatTracked(String playerName, String stat, double value, double alpha) {
+    CognitiveProfile profile = getOrCreateCognitiveProfile(playerName);
+    CognitiveArchetype before = profile.getArchetype();
+    profile.updateEMA(stat, value, alpha);
+    CognitiveArchetype after = profile.getArchetype();
+    BotDiagnostics.recordArchetypeShift(playerName, before, after, profile, stat);
+    BotDiagnostics.recordProfileSnapshot(playerName, profile, stat);
+  }
+
   public static CognitiveArchetype getTrackedArchetype(String playerName) {
     CognitiveProfile profile = getCognitiveDB().get(playerName);
     if (profile == null)
@@ -388,6 +406,58 @@ public class PokerBot extends PokerPlayer {
     return nightmareIntensity;
   }
 
+  private void trace(String stage, String message) {
+    if (!BotDiagnostics.enabled()) {
+      return;
+    }
+    System.out.println("[BOT TRACE][" + super.getName() + "][" + stage + "] " + message);
+  }
+
+  private String cardsToString(Card[] cards) {
+    if (cards == null || cards.length == 0)
+      return "(none)";
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < cards.length; i++) {
+      if (cards[i] == null)
+        continue;
+      if (sb.length() > 0)
+        sb.append(" ");
+      sb.append(cards[i].getValue());
+    }
+    return sb.length() == 0 ? "(none)" : sb.toString();
+  }
+
+  private String actionLabel(int actionCode) {
+    switch (actionCode) {
+      case 1:
+        return "CALL/CHECK";
+      case 2:
+        return "FOLD";
+      case 3:
+        return "BET/RAISE";
+      case 4:
+        return "ALL-IN";
+      default:
+        return "UNKNOWN";
+    }
+  }
+
+  private void traceTableState(String stage, PokerPlayer[] players, Card[] board, int seatIndex) {
+    if (players == null)
+      return;
+    String boardText = (board == null) ? "(preflop)" : cardsToString(board);
+    trace(stage, "TABLE SNAPSHOT | board=" + boardText + ", seatIndex=" + seatIndex);
+    for (int i = 0; i < players.length; i++) {
+      PokerPlayer pl = players[i];
+      if (pl == null)
+        continue;
+      String marker = (i == seatIndex) ? " <- ACTING" : "";
+      trace(stage,
+          "seat=" + i + ", name=" + pl.getName() + ", inHand=" + pl.inHand() + ", chips=" + pl.getChips()
+              + ", hole=" + cardsToString(pl.getHand()) + marker);
+    }
+  }
+
   // funny
   public void checkName() {
     if (super.getName().equals("Aventurine")) {
@@ -396,8 +466,6 @@ public class PokerBot extends PokerPlayer {
   }
 
   public int[] action(String round, int prevBet, int bet, int blind, int lastRaise, Card[] board, int potSize, PokerPlayer[] players, int seatIndex, int preflopAggressorIndex, int sbIdx, int bbIdx) {
-    int numPlayers = players.length;
-
     int tablePlayers = 0;
     for (PokerPlayer p : players) if (p.getChips() > 0) tablePlayers++;
     boolean headsUpTable = (tablePlayers == 2);
@@ -405,6 +473,15 @@ public class PokerBot extends PokerPlayer {
     int activeCount = 0;
     for (PokerPlayer p : players) if (p.inHand()) activeCount++;
     boolean headsUpHand = (activeCount == 2);
+
+    String stage = "ACTION-" + round.toUpperCase();
+    if (botLevel == 1 || botLevel == 2) {
+      trace(stage,
+          "ENTER | level=" + botLevel + ", hole=" + cardsToString(super.getHand()) + ", prevBet=" + prevBet
+              + ", tableBet=" + bet + ", blind=" + blind + ", lastRaise=" + lastRaise + ", pot=" + potSize
+              + ", headsUpTable=" + headsUpTable + ", headsUpHand=" + headsUpHand);
+      traceTableState(stage, players, board, seatIndex);
+    }
 
     if (botLevel == 2) {
       if (round.equals("preflop")) {
@@ -481,16 +558,22 @@ public class PokerBot extends PokerPlayer {
          * if hand is out of range, has a 25% chance to call and 75% chance of folding.
          */
         boolean isHand = false;
+        String smartReason = "preflop-default";
+        trace("SMART-PREFLOP",
+            "START | hole=" + cardsToString(super.getHand()) + ", prevBet=" + prevBet + ", tableBet=" + bet
+                + ", lastRaise=" + lastRaise + ", stack=" + super.getChips() + ", headsUpTable=" + headsUpTable);
         for (int[] h : hands) {
           if (Arrays.equals(Deck.cardToInt(super.getHand()), h)) {
             isHand = true;
             if (bet < super.getChips() / 2) {
               if (Math.random() < 0.2) {
+                smartReason = "in-range hand + affordable pressure lane => raise";
                 action[0] = 3;
                 int raiseTo = (bet == 0) ? (int) (blind * (Math.random() + 2)) : (int) (bet * (Math.random() + 2));
                 raiseTo = Math.max(raiseTo, bet + lastRaise); // Standardized Floor
                 action[1] = Math.min(raiseTo - prevBet, super.getChips());
               } else {
+                smartReason = "in-range hand + affordable pressure lane => call";
                 action[0] = 1;
                 if (bet > 0) {
                   action[1] = (bet >= super.getChips()) ? super.getChips() : bet - prevBet;
@@ -499,12 +582,14 @@ public class PokerBot extends PokerPlayer {
               }
             } else {
               if (Math.random() < 0.8) {
+                smartReason = "in-range hand + expensive bet => defensive call";
                 action[0] = 1;
                 if (bet > 0) {
                   action[1] = (bet >= super.getChips()) ? super.getChips() : bet - prevBet;
                 } else
                   action[1] = (bet == 0) ? 0 : bet - prevBet;
               } else {
+                smartReason = "in-range hand + expensive bet => disciplined fold";
                 action[0] = 2;
               }
             }
@@ -517,12 +602,17 @@ public class PokerBot extends PokerPlayer {
           if (headsUpTable && (cardInts[0] >= 12 || cardInts[1] >= 12)) callAirFreq = 1.0; // Play any Q+ preflop 1v1
 
           if (bet < super.getChips() / 2 && Math.random() < callAirFreq) {
+            smartReason = "out-of-range hand + affordable bet + RNG under callAirFreq=" + callAirFreq + " => call";
             action[0] = 1;
             action[1] = (bet == 0) ? 0 : bet - prevBet;
           } else {
+            smartReason = "out-of-range hand => fold";
             action[0] = 2;
           }
         }
+        trace("SMART-PREFLOP",
+            "RESOLVE | inPresetRange=" + isHand + ", reason=" + smartReason + ", action="
+                + actionLabel(action[0]) + ", amount=" + action[1]);
       } else {
         // three betting settings: 0 - call 1 - bets/raise to 100-150% of current bet, 2
         // - 150-300% of current bet, 3 - 300% to all in. 4 - fold
@@ -537,6 +627,7 @@ public class PokerBot extends PokerPlayer {
         // fold chance with check chance if applicable
         // bot's behavior in a nutshell every time on its turn
         int subAction = -1;
+        String smartReason = "postflop-default";
         Card[] hand = new Card[5];
         if (board.length == 3) {
           hand[0] = super.getHand()[0];
@@ -548,7 +639,12 @@ public class PokerBot extends PokerPlayer {
         }
         int rank = p.getRanking(hand);
         int rand = (int) (Math.random() * 101 + 1);
+        trace("SMART-POSTFLOP",
+            "START | hole=" + cardsToString(super.getHand()) + ", board=" + cardsToString(board) + ", best5="
+                + cardsToString(hand) + ", rank=" + rank + ", randRoll=" + rand + ", prevBet=" + prevBet
+                + ", tableBet=" + bet + ", lastRaise=" + lastRaise + ", stack=" + super.getChips());
         if (rank == 5 || rank == 4) {
+          smartReason = "strong made hand bucket (straight/flush)";
           if (rand <= 25) {
             subAction = 0;
           } else if (rand > 25 && rand <= 80) {
@@ -559,6 +655,7 @@ public class PokerBot extends PokerPlayer {
             subAction = 3;
           }
         } else if (rank == 3) {
+          smartReason = "monster bucket (full house)";
           if (rand <= 5) {
             subAction = 0;
           } else if (rand > 5 && rand <= 40) {
@@ -569,6 +666,7 @@ public class PokerBot extends PokerPlayer {
             subAction = 3;
           }
         } else if (rank < 3) {
+          smartReason = "ultra-premium bucket (quads/straight flush)";
           if (rand <= 15) {
             subAction = 1;
           } else if (rand > 15 && rand <= 40) {
@@ -584,6 +682,7 @@ public class PokerBot extends PokerPlayer {
             temp[i + 2] = board[i];
           boolean[] draw = draw(temp);
           if (rank == 6 || rank == 7 || ((draw[0] || draw[1]) && board.length < 5)) {
+            smartReason = "medium-strength/draw bucket";
             if (bet < super.getChips() / 2) {
               if (rand <= 50) {
                 subAction = 0;
@@ -598,8 +697,10 @@ public class PokerBot extends PokerPlayer {
               }
             } else {
               if (draw[0] || draw[1]) {
+                 smartReason = "draw under pressure: coin-flip continue/fold";
                  if (Math.random() < 0.50) subAction = 0; else subAction = 4; // Gamble on draws 50%
               } else {
+                  smartReason = "medium made hand under pressure with fold-rate balancing";
                   double foldRate = (headsUpHand) ? 0.25 : 0.50; // Reduce panic fold 1v1
                   if (rand <= 30) {
                     subAction = 0;
@@ -615,6 +716,7 @@ public class PokerBot extends PokerPlayer {
               }
             }
           } else {
+            smartReason = "weak/no-draw bucket";
             if (bet < super.getChips() / 3) {
               if (rand <= 65) {
                 subAction = 0;
@@ -641,6 +743,9 @@ public class PokerBot extends PokerPlayer {
           bet = blind;
           zeroBet = true;
         }
+
+        trace("SMART-POSTFLOP",
+            "SUBACTION PICKED | subAction=" + subAction + ", zeroBet=" + zeroBet + ", reason=" + smartReason);
         
         // Override removed to bring bust rate up to 20-30%
         
@@ -679,11 +784,15 @@ public class PokerBot extends PokerPlayer {
               action[0] = 1;
             break;
         }
+        trace("SMART-POSTFLOP",
+            "MAP SUBACTION | action=" + actionLabel(action[0]) + ", amount=" + action[1]);
       }
       if (action[1] >= super.getChips()) {
         action[0] = 4;
         action[1] = super.getChips();
       }
+      trace("SMART-" + round.toUpperCase(),
+          "FINAL | action=" + actionLabel(action[0]) + ", amount=" + action[1] + ", chips=" + super.getChips());
       return action;
     }
   }
@@ -693,6 +802,7 @@ public class PokerBot extends PokerPlayer {
     int relativePos = (seatIndex - sbIdx + numPlayers) % numPlayers;
     
     int[] action = new int[2];
+    String decisionReason = "unresolved";
     int[] numhand = Deck.cardToInt(super.getHand());
     Arrays.sort(numhand);
     boolean paired = numhand[0] == numhand[1];
@@ -798,6 +908,13 @@ public class PokerBot extends PokerPlayer {
     boolean exploitManiac = (focusArchetype == CognitiveArchetype.MANIAC);
     boolean exploitStation = (focusArchetype == CognitiveArchetype.STATION);
     boolean gtoFallback = (focusArchetype == CognitiveArchetype.ELITE_REG);
+
+    trace("GOD-PREFLOP",
+      "START | hole=" + cardsToString(super.getHand()) + ", prevBet=" + prevBet + ", tableBet=" + bet
+        + ", blind=" + blind + ", lastRaise=" + lastRaise + ", seatIndex=" + seatIndex + ", relativePos="
+        + relativePos + ", paired=" + paired + ", suited=" + suited + ", premium=" + premium
+        + ", headsUpTable=" + headsUpTable + ", smartHU=" + smartHuExploitMode + ", focusArchetype="
+        + focusArchetype + ", maxHumanAgg=" + maxHumanAggression + ", isGB=" + isGB + ", isGS=" + isGS);
     
     boolean stealRange = paired || numhand[1] >= 14 || (suited && numhand[1] - numhand[0] <= 4);
     boolean smartPressureRange = smartHuExploitMode && (paired || numhand[1] >= 12 || (suited && numhand[1] - numhand[0] <= 5));
@@ -838,6 +955,7 @@ public class PokerBot extends PokerPlayer {
     }
     
     if (premium || (chipleader && shortStacks && stealRange) || mixedStrategy) {
+      decisionReason = "open/3bet value lane: premium or pressure steal or mixed strategy";
       action[0] = 3;
       int intended = (bet > blind) ? (bet * 3) : (blind * 3);
       int raiseTo = Math.min(Math.max(intended, bet + lastRaise), super.getChips() + prevBet);
@@ -889,58 +1007,74 @@ public class PokerBot extends PokerPlayer {
           && !(paired && numhand[0] >= 9)
           && !(numhand[1] >= 13 && numhand[0] >= 11)) {
         // Against Smart 4-bet/5-bet pressure in HU, avoid spewing marginal opens.
+        decisionReason = "smart-HU anti-spew fold vs oversized 4/5-bet pressure";
         action[0] = 2; action[1] = 0;
       } else if (gtoFallback && !premium) {
         // Pure baseline fallback against elite/volatile opponents.
+        decisionReason = "elite-reg fallback: tighten to baseline defense";
         if (defenseRange && bet <= blind * 3.5) {
           action[0] = 1; action[1] = bet - prevBet;
         } else {
           action[0] = 2; action[1] = 0;
         }
       } else if (exploitNit && defenseRange) {
+        decisionReason = "nit exploit: high-frequency preflop pressure";
         action[0] = 3;
         int raiseTo = Math.min(Math.max(bet * 3, bet + lastRaise), super.getChips() + prevBet);
         action[1] = raiseTo - prevBet;
       } else if (exploitManiac && defenseRange && !premium) {
+        decisionReason = "maniac exploit: induce punts with flatter defend range";
         if (bet <= blind * 6.0 || (paired && numhand[0] >= 7) || faceCards) {
           action[0] = 1; action[1] = bet - prevBet;
         } else {
           action[0] = 2; action[1] = 0;
         }
       } else if (defenseRange && Math.random() < threeBetChance) {
+          decisionReason = "defense range RNG passed threeBetChance=" + threeBetChance;
           action[0] = 3; 
           int raiseTo = Math.min(Math.max(bet * 3, bet + lastRaise), super.getChips() + prevBet);
           action[1] = raiseTo - prevBet;
       } else if (seatIndex == bbIdx && bet <= blind * 4.5 && defenseRange) {
+          decisionReason = "big-blind defense flat";
           action[0] = 1; action[1] = bet - prevBet; // Big Blind Defense (Sticky Call)
       } else if (latePos && bet <= blind * 3.5 && (paired || wheelAce)) {
+          decisionReason = "late-position flat with paired/wheel-ace defense";
           action[0] = 1; action[1] = bet - prevBet; // Positional Flatting (Call in position)
       } else if (maxHumanAggression > 0.40 && ((paired && numhand[0] >= 6) || (numhand[1] >= 13 && numhand[0] >= 10))) {
           // PHASE 5: Snap-call manic 5-bet preflop jams with playable stuff (mid-pairs or strong broadways), not arbitrary J-highs
+          decisionReason = "high-aggression opponent exploit: snap-call playable blocker hands";
           action[0] = 1; action[1] = bet - prevBet;
       } else if (headsUpTable) {
+          decisionReason = "heads-up pressure fallback 3-bet";
           action[0] = 3; 
           int raiseTo = Math.min(Math.max(bet * 3, bet + lastRaise), super.getChips() + prevBet);
           action[1] = raiseTo - prevBet;
       } else {
+          decisionReason = "trash fold after defense tree exhausted";
           action[0] = 2; action[1] = 0; // Still fold trash
       }
     } else if (unraised && latePos && stealRange) {
+      decisionReason = "late-position open steal";
       action[0] = 3;
       action[1] = Math.min(blind * 3, super.getChips());
     } else if (unraised && inBlinds) {
       if (bet <= super.getChips() / 4) {
+        decisionReason = "blind defense call/check in unraised pot";
         action[0] = 1;
         action[1] = bet > 0 ? bet - prevBet : 0;
       } else {
+         decisionReason = "blind defense fold to oversized open";
          action[0] = 2; action[1] = 0;
       }
     } else if (earlyPos && earlyRange) {
+      decisionReason = "early-position value open";
       action[0] = 3; action[1] = Math.min(blind * 3, super.getChips());
     } else {
       if (headsUpTable) {
+          decisionReason = "heads-up fallback aggression";
           action[0] = 3; action[1] = Math.max(bet * 3, blind * 3);
       } else {
+          decisionReason = "multiway fallback fold/check";
           action[0] = 2; action[1] = 0;
           if (bet == 0) { action[0] = 1; action[1] = 0; }
       }
@@ -953,15 +1087,35 @@ public class PokerBot extends PokerPlayer {
       int legalMin = bet + lastRaise;
       if (raiseTo < legalMin) raiseTo = Math.min(super.getChips() + prevBet, legalMin + (int)(Math.random() * 5));
       action[1] = raiseTo - prevBet;
+      decisionReason += " | sizing-noise-adjusted";
     }
     
-    if (action[1] >= super.getChips()) { action[0] = 4; action[1] = super.getChips(); }
+    if (action[1] >= super.getChips()) {
+      action[0] = 4;
+      action[1] = super.getChips();
+      decisionReason += " | clipped-to-all-in";
+    }
+    trace("GOD-PREFLOP",
+        "FINAL | reason=" + decisionReason + ", action=" + actionLabel(action[0]) + ", amount=" + action[1]
+            + ", defenseRange=" + defenseRange + ", mixedStrategy=" + mixedStrategy + ", smartHU="
+            + smartHuExploitMode + ", depthRatio=" + smartHuDepthRatio);
+    BotDiagnostics.recordGodDecision(
+      "PREFLOP",
+      super.getName(),
+      decisionReason,
+      actionLabel(action[0]),
+      action[1],
+      "tableBet=" + bet + ", prevBet=" + prevBet + ", blind=" + blind + ", seatIndex=" + seatIndex
+        + ", defenseRange=" + defenseRange + ", mixedStrategy=" + mixedStrategy + ", smartHU="
+        + smartHuExploitMode + ", depthRatio=" + smartHuDepthRatio + ", focusArchetype="
+        + focusArchetype + ", hole=" + cardsToString(super.getHand()));
     cbetFlop = false; // Reset barrelling state for new hand
     return action;
   }
 
   private int[] godPostflop(int prevBet, int bet, int blind, int lastRaise, Card[] board, int potSize, PokerPlayer[] players, int seatIndex, int preflopAggressorIndex, int sbIdx, int bbIdx) {
     int[] action = new int[2];
+    String decisionReason = "unresolved";
     Card[] fullHand = new Card[5];
     if (board.length == 3) {
       fullHand[0] = super.getHand()[0];
@@ -1135,6 +1289,14 @@ public class PokerBot extends PokerPlayer {
     boolean exploitingSmartBot = (smartBotCount > 0 && dumbBotCount == 0 && !protectedMode); 
     boolean minusOneActive = false;
     double bluffSizeVsSmart = (largestSmartStack > 0) ? (largestSmartStack * 0.5) + 1 : potSize;
+
+    trace("GOD-POSTFLOP",
+      "START | hole=" + cardsToString(super.getHand()) + ", board=" + cardsToString(board) + ", best5="
+        + cardsToString(fullHand) + ", myRank=" + myRank + ", boardRank=" + boardRank + ", draws=["
+        + draws[0] + "," + draws[1] + "], equity=" + equity + ", potOdds=" + potOdds + ", prevBet="
+        + prevBet + ", tableBet=" + bet + ", pot=" + potSize + ", smartHU=" + smartHuExploitMode
+        + ", depthRatio=" + depthRatio + ", focusArchetype=" + focusArchetype + ", predatoryMode="
+        + predatoryMode + ", cbetEligible=" + cbet);
     if (smartHuExploitMode) {
       double pressureBias = (smartHuLeak.foldToFlopCbetHUEMA - 0.5) * 0.25;
       bluffSizeVsSmart *= (1.0 + pressureBias);
@@ -1146,42 +1308,66 @@ public class PokerBot extends PokerPlayer {
       bluffSizeVsSmart = Math.max(blind * 2.0, Math.min(super.getChips(), bluffSizeVsSmart));
     }
 
-    // Heuristic Sizing Scanner (Soul Reading) - Restricted to Multi-Player Hands
-    boolean soulReadSmartBot = false;
-    if (!zeroBet && smartBotCount > 0 && !protectedMode) {
+     // Heuristic Sizing Scanner (Soul Reading)
+     boolean soulReadSmartOverbet = false;
+     boolean soulReadSmartMixed = false;
+     double smartSizingRatio = 0.0;
+     if (!zeroBet && smartBotCount > 0 && !protectedMode) {
        double baseBet = (prevBet > 0) ? prevBet : blind;
-       double soulReadThreshold = 2.6;
-       if (headsUpHand && smartHuExploitMode) {
-         soulReadThreshold = smartDeficitRecovery ? 2.20 : 2.35;
-       }
-       if (bet >= baseBet * soulReadThreshold) soulReadSmartBot = true;
-    }
+       smartSizingRatio = (double) bet / Math.max(1.0, baseBet);
+       soulReadSmartOverbet = smartSizingRatio >= 2.65;
+       soulReadSmartMixed = smartSizingRatio > 1.0 && smartSizingRatio < 2.65;
+     }
 
-    if (soulReadSmartBot && myRank > 3) {
-       act = 2; // Mathematically deduced Smart Bot has Full House+
-    } else if (nutBlocker && isThinkingOpponentOnly) {
+     if (soulReadSmartOverbet && myRank > 7) {
+       decisionReason = "soul-read overbet from smart bot implies value-heavy range => fold bluff-catchers";
+       act = 2; // Preserve strong made hands (straight+) while folding medium bluff-catchers.
+     } else if (soulReadSmartMixed && headsUpHand && myRank >= 6 && myRank <= 8 && !zeroBet) {
+       // SubAction-1 sizing is mixed value/bluff; in HU this lane should be call-first, not auto-raise.
+       boolean scaryPairSpot = (myRank >= 8) && (flushScare || straightScare);
+       double callCap = smartDeficitRecovery ? 0.95 : (smartLockdown ? 0.55 : 0.75);
+       if (!scaryPairSpot && costToCall <= potSize * callCap) {
+        decisionReason = "soul-read mixed sizing in HU => controlled bluff-catch call";
+        act = 1;
+        actAmount = bet - prevBet;
+       } else {
+        decisionReason = "soul-read mixed sizing in HU but risk too high => disciplined fold";
+        act = 2;
+       }
+     } else if (nutBlocker && isThinkingOpponentOnly) {
+       decisionReason = "nut-blocker bluff lane on scare texture";
        act = 3; actAmount = exploitingSmartBot ? (int)bluffSizeVsSmart : Math.max(potSize, super.getChips());
     } else if (smartHuExploitMode && board.length == 4 && zeroBet && smartHuLeak.checkBackTurnHUEMA >= 0.55 && myRank <= 8) {
       // Smart check-back tendency on turn gets punished by proactive probing.
+      decisionReason = "smart-HU turn probe punish after high check-back tendency";
       act = 3;
       actAmount = (int) Math.max(blind, potSize * (smartDeficitRecovery ? 0.70 : 0.45));
     } else if (board.length >= 5 && myRank >= boardRank && p.compareHands(fullHand, bestBoard) == 0) {
+      decisionReason = "board-lock scenario: protect against chop disasters";
       // Defensive Awareness: If board is terrifying and we just have a pair, fold to big pressure
       // SPICY OVERRIDE: If being bullied, stay suspicious and don't fold Top Pairs or better
       if (!zeroBet && (flushScare || straightScare) && costToCall > potSize * 0.5 && myRank > 5 && !isBeingBullied) {
          if (maxHumanAggression > 0.40 && (myRank <= 7 || isGB)) {
              // PHASE 5: Maniac exploit - Snap call their scare card bluff with Top/Middle pair
+           decisionReason = "board-lock + maniac exploit => bluff-catch call";
              act = 1; actAmount = bet - prevBet;
          } else {
+           decisionReason = "board-lock + heavy pressure => fold";
              act = 2;
          }
       } else {
-         if (zeroBet) act = 1; else {
+        if (zeroBet) {
+          decisionReason = "board-lock with no bet => check";
+          act = 1;
+        } else {
             if (isBeingBullied && myRank <= 8) { act = 1; actAmount = bet - prevBet; }
-            else act = 2;
+          else act = 2;
+          if (isBeingBullied && myRank <= 8) decisionReason = "board-lock + bullied => hero-call";
+          else decisionReason = "board-lock fallback fold";
          }
       }
     } else if (myRank <= 3 || (isBeingBullied && myRank <= 8) || (maxHumanAggression > 0.40 && myRank <= 6)) { 
+      decisionReason = "value/trap engine for strong made hands";
       // Trapping Logic (Slow-play): 20% chance to check/call monster hands to bait bluffs - SPICY MODE ONLY
       double trapFreq = isGB ? 0.10 : (isGS ? 0.40 : 0.20);
       if (exploitManiac) trapFreq = Math.min(0.70, trapFreq + 0.25);
@@ -1194,13 +1380,16 @@ public class PokerBot extends PokerPlayer {
       boolean trapMode = (!protectedMode && isThinkingOpponentOnly && Math.random() < trapFreq && (board.length == 3 || board.length == 4));
       
       if (dumbBotCount > 0 && largestDumbStack > 0 && !protectedMode) {
+          decisionReason = "minus-one exploit active versus dumb bot";
           act = 3; actAmount = Math.max(potSize, largestDumbStack - 1); // MINUS ONE EXPLOIT
           minusOneActive = true;
       } else if (trapMode) {
+          decisionReason = "trap mode selected (slow-play)";
           if (zeroBet) act = 1; else { act = 1; actAmount = bet - prevBet; }
       } else {
           // Iron Chin: Snap-calling bullies with Hero Ranges (Pairs or better)
           if (isBeingBullied && !zeroBet) {
+           decisionReason = "bullied defense call";
              act = 1; actAmount = bet - prevBet;
           } else {
              double valueMult = (depthRatio > 1.5 && !protectedMode) ? 1.0 : 0.75; // Big Stack Bully widening (disable if protected)
@@ -1213,15 +1402,22 @@ public class PokerBot extends PokerPlayer {
              }
              if (gtoFallback) valueMult = Math.min(valueMult, 0.85);
              valueMult = Math.max(0.40, Math.min(1.20, valueMult));
-             if (zeroBet) { act = 3; actAmount = (int)(potSize * valueMult); } 
-             else { act = 3; actAmount = bet * 3; }
+             if (zeroBet) {
+               decisionReason = "strong hand value lead with dynamic multiplier=" + valueMult;
+               act = 3; actAmount = (int)(potSize * valueMult);
+             } else {
+               decisionReason = "strong hand value raise versus bet";
+               act = 3; actAmount = bet * 3;
+             }
           }
       }
     } else if (myRank <= (headsUpHand ? 8 : 7) && dumbBotCount > 0 && !draws[0] && !draws[1]) {
+      decisionReason = "thin value versus dumb bot range";
       // Hyper-Thin Value Betting vs Dumb Bots (Isolated 1v1 expands threshold to Any Pair)
       if (zeroBet) { act = 3; actAmount = potSize; }
       else { act = 3; actAmount = Math.max(potSize, bet * 2); }
     } else if (myRank <= 5) { 
+      decisionReason = "standard value extraction lane";
       // PHASE 7: Multiway Value Extraction - Charge a premium against multiple players to protect strong hands
       double valueSize = (activeCount >= 3) ? 0.85 : 0.5;
       if (exploitStation) valueSize *= 1.20;
@@ -1236,9 +1432,12 @@ public class PokerBot extends PokerPlayer {
       if (zeroBet) { act = 3; actAmount = (int)(potSize * valueSize); }
       else { 
         if (costToCall > super.getChips() * 0.5) { act = 1; actAmount = bet - prevBet; } 
-        else { act = 3; actAmount = bet * 2; }
+        else { act = 3; actAmount = bet * 3; }
+        if (costToCall > super.getChips() * 0.5) decisionReason = "value hand but high call cost => control via call";
+        else decisionReason = "value hand raise for protection";
       }
-    } else if (myRank <= 7 || draws[0] || draws[1]) { 
+    } else if (myRank <= 8 || draws[0] || draws[1]) { 
+      decisionReason = "draw/marginal hand semi-bluff and c-bet engine";
       // GTO Hardening: Semi-Bluffing (40% chance to lead draws aggressively) - SPICY MODE ONLY
       boolean semiBluff = (isThinkingOpponentOnly && (draws[0] || draws[1]) && Math.random() < 0.40);
       
@@ -1319,16 +1518,21 @@ public class PokerBot extends PokerPlayer {
         cbetSize = Math.max(0.20, Math.min(0.60, cbetSize));
 
       if (zeroBet && cbet && Math.random() < cbetFreq) {
+        decisionReason = "c-bet fired with tuned frequency=" + cbetFreq;
          act = 3; actAmount = (int)(Math.max(potSize * cbetSize, blind));
          if (board.length == 3) cbetFlop = true;
       } else if (zeroBet && semiBluff) {
+        decisionReason = "semi-bluff lead on draw";
          act = 3; actAmount = (int)(potSize * 0.75); // Lead aggressively on semi-bluff
       } else if (board.length == 4 && cbetFlop && board[3].getNum() >= 11 && Math.random() < barrelFreq) {
          // Triple Barreling: Turn is a face card and we C-bet flop
+        decisionReason = "turn barrel after flop c-bet on favorable overcard";
          act = 3; actAmount = (int)(potSize * 0.6);
       } else if (!zeroBet && semiBluff) {
+        decisionReason = "semi-bluff raise facing bet";
          act = 3; actAmount = bet * 3; // Aggressive Raise on semi-bluff
       } else if (!zeroBet && (draws[0] || draws[1]) && equity > potOdds) {
+        decisionReason = "draw call justified by equity>potOdds";
          act = 1; actAmount = bet - prevBet;
       } else {
          // PHASE 6: Scare-Board Float & Bluff-Catch Logic (REVISED)
@@ -1364,25 +1568,38 @@ public class PokerBot extends PokerPlayer {
              // Dynamic Response: If bet is small (<50% pot), occasionally check-raise/re-raise to punish bluffs
              double betRatio = (double)(bet - prevBet) / Math.max(1, potSize);
              if (betRatio < 0.50 && Math.random() < 0.60) {
+             decisionReason = "scare-board bluff catch converted to punish raise";
                  act = 3; actAmount = Math.max(bet * 3, potSize); // Re-raise the small bluff
              } else {
+             decisionReason = "scare-board bluff catch via controlled call";
                  act = 1; actAmount = bet - prevBet; // Float/call against bigger bets to control the pot
              }
          } else {
              double riskRatio = (super.getChips() > 0) ? costToCall / (double)super.getChips() : 1.0;
              double callProb = (!zeroBet && riskRatio < 0.20) ? (0.20 - riskRatio) * 5.0 : 0.0; // Phase 3: Smooth 0-100% call scale for micro bets
              
-             if (zeroBet) act = 1; 
-             else if (!zeroBet && costToCall > 0 && Math.random() < callProb) { act = 1; actAmount = bet - prevBet; } // Resist micro-bet exploit
-             else if (headsUpHand && Math.random() > huFoldChance) { act = 1; actAmount = bet - prevBet; }
-             else act = 2;
+             if (zeroBet) {
+               decisionReason = "no-bet fallback check";
+               act = 1;
+             } else if (!zeroBet && costToCall > 0 && Math.random() < callProb) {
+               decisionReason = "micro-bet exploit defense call";
+               act = 1; actAmount = bet - prevBet;
+             } else if (headsUpHand && Math.random() > huFoldChance) {
+               decisionReason = "heads-up stickiness call";
+               act = 1; actAmount = bet - prevBet;
+             } else {
+               decisionReason = "draw/marginal fallback fold";
+               act = 2;
+             }
          }
       }
     } else if (predatoryMode && myRank <= 10) {
+       decisionReason = "predatory thin-value line (ace-high capable)";
        // Ultra-Thin Value: Betting Ace-High against Dumb Bots 1v1
        if (zeroBet) { act = 3; actAmount = (int)(potSize * 0.5); }
        else { act = 1; actAmount = bet - prevBet; }
     } else { 
+      decisionReason = "air fallback c-bet/check-fold policy";
       double cbetFreq = (aceHighBoard) ? 0.90 : 0.65;
       
       // PHASE 3: Smooth Dynamic Stack-Depth Aggression Scaling
@@ -1408,28 +1625,33 @@ public class PokerBot extends PokerPlayer {
       else if (gtoFallback && cbet) cbetFreq = Math.max(0.45, Math.min(0.80, cbetFreq));
 
       if (zeroBet && cbet && Math.random() < cbetFreq) {
+        decisionReason = "fallback c-bet fired with frequency=" + cbetFreq;
          act = 3; actAmount = (int)(Math.max(potSize * 0.4, blind)); 
          if (board.length == 3) cbetFlop = true;
       } else if (board.length == 4 && cbetFlop && board[3].getNum() >= 11 && Math.random() < 0.70) {
          // Triple Barreling
+        decisionReason = "fallback turn barrel after flop c-bet";
          act = 3; actAmount = (int)(potSize * 0.6);
       } else {
+        decisionReason = "fallback check/fold";
          act = zeroBet ? 1 : 2; 
       }
     }
     
     // Meta-Bluffing Level 3: Overbetting to exploit other God Bots who respect math
     if (!protectedMode && godBotCount > 0 && dumbBotCount == 0 && Math.random() < 0.12 && act == 2) {
+       decisionReason += " | meta-bluff override triggered";
        act = 3;
        actAmount = (int)(potSize * (1.5 + Math.random()));
     }
 
     if (smartHuExploitMode) {
-      boolean weakOrAir = (myRank >= 8 && !draws[0] && !draws[1]);
+      boolean weakOrAir = (myRank > 8 && !draws[0] && !draws[1]);
       if (!zeroBet && weakOrAir) {
         double callRisk = costToCall / Math.max(1.0, super.getChips());
         if (callRisk > 0.20) {
           // Smart bots earn most EV from trapping oversized hero calls; tighten this lane.
+          decisionReason += " | smart-HU weak-air clamp forced fold";
           act = 2;
           actAmount = 0;
         }
@@ -1438,51 +1660,92 @@ public class PokerBot extends PokerPlayer {
       if (act == 3 && weakOrAir) {
         int bluffCap = (int) (potSize * (smartDeficitRecovery ? 0.55 : 0.40));
         actAmount = Math.max(blind, Math.min(actAmount, bluffCap));
+        decisionReason += " | weak-air bluff cap=" + bluffCap;
       }
 
       if (act == 3 && smartLockdown && myRank >= 7) {
         int lockdownCap = (int) (potSize * 0.45);
         actAmount = Math.max(blind, Math.min(actAmount, lockdownCap));
+        decisionReason += " | smart lockdown cap=" + lockdownCap;
       }
     }
 
     if (act == 3 && board.length == 5 && smartHuExploitMode) {
       if (smartDeficitRecovery && smartHuLeak.foldToRiverLargeBetHUEMA >= 0.45) {
         actAmount = Math.max(actAmount, (int) (potSize * 0.95));
+        decisionReason += " | river pressure boost (deficit recovery)";
       } else if (smartLockdown && myRank > 6) {
         actAmount = Math.max(blind, (int) (potSize * 0.45));
+        decisionReason += " | river lockdown sizing";
       } else if (smartHuLeak.foldToRiverLargeBetHUEMA >= 0.55 && myRank > 6) {
         actAmount = Math.max(actAmount, (int) (potSize * 0.80));
+        decisionReason += " | river exploit overfold sizing";
       }
     }
     
     // Humanoid Noise: Adding +/- 5 chips to break predictable denominations
     if (act == 3 && !minusOneActive) {
        actAmount += (int)(Math.random() * 11) - 5;
+       decisionReason += " | humanoid noise applied";
     }
     
     // FINAL POST-FLOP LEGAL GUARD: Ensure noise didn't violate the increment rule
     if (act == 3) {
        int legalMin = bet + lastRaise;
-       if (actAmount < legalMin) actAmount = Math.min(super.getChips() + prevBet, legalMin);
+       if (actAmount < legalMin) {
+        actAmount = Math.min(super.getChips() + prevBet, legalMin);
+        decisionReason += " | legal-min clamp=" + legalMin;
+       }
     }
     
-    if (dumbBotCount > 0 && act == 3 && myRank > 7 && !headsUpHand) act = 1; // Only eradicate bluffs in multi-player pots
+    if (dumbBotCount > 0 && act == 3 && myRank > 7 && !headsUpHand) {
+      decisionReason += " | multiway dumb-bot bluff suppression";
+      act = 1;
+    } // Only eradicate bluffs in multi-player pots
     if (act == 3 && actAmount <= bet) actAmount = bet + Math.max(lastRaise, blind); // Ensure legal raise (Official Increment Rule)
     if (act == 3 && actAmount == 0) actAmount = Math.max(lastRaise, blind);
     
-    if (act == 3 && actAmount >= super.getChips() * 0.9 && !minusOneActive) { act = 4; } 
+    if (act == 3 && actAmount >= super.getChips() * 0.9 && !minusOneActive) {
+      decisionReason += " | converted to all-in threshold";
+      act = 4;
+    }
 
     // NUCLEAR PREDATOR OVERRIDE: 1v1 against fish, NEVER fold top-pair+
-    if (predatoryMode && act == 2 && myRank <= 8) act = 1; 
+    if (predatoryMode && act == 2 && myRank <= 8) {
+      decisionReason += " | predator no-fold override";
+      act = 1;
+    }
 
-    if (act == 3 && actAmount > super.getChips() + prevBet) { act = 4; actAmount = super.getChips() + prevBet; }
+    if (act == 3 && actAmount > super.getChips() + prevBet) {
+      decisionReason += " | raise exceeds stack converted to all-in";
+      act = 4;
+      actAmount = super.getChips() + prevBet;
+    }
     if (act == 4) { action[0] = 4; action[1] = super.getChips(); }
     else if (act == 3) { action[0] = 3; action[1] = actAmount - prevBet; }
     else if (act == 2) { action[0] = zeroBet ? 1 : 2; action[1] = 0; }
     else { action[0] = 1; action[1] = zeroBet ? 0 : bet - prevBet; } // Standardized increment
     
-    if (action[1] >= super.getChips()) { action[0] = 4; action[1] = super.getChips(); }
+    if (action[1] >= super.getChips()) {
+      decisionReason += " | final amount clipped to stack";
+      action[0] = 4;
+      action[1] = super.getChips();
+    }
+    trace("GOD-POSTFLOP",
+        "FINAL | reason=" + decisionReason + ", action=" + actionLabel(action[0]) + ", amount=" + action[1]
+            + ", actCode=" + act + ", rawActAmount=" + actAmount + ", zeroBet=" + zeroBet + ", cbetFlop="
+            + cbetFlop + ", smartHU=" + smartHuExploitMode + ", minusOne=" + minusOneActive);
+    BotDiagnostics.recordGodDecision(
+      "POSTFLOP",
+      super.getName(),
+      decisionReason,
+      actionLabel(action[0]),
+      action[1],
+      "tableBet=" + bet + ", prevBet=" + prevBet + ", pot=" + potSize + ", rank=" + myRank
+        + ", boardRank=" + boardRank + ", equity=" + String.format("%.3f", equity) + ", potOdds="
+        + String.format("%.3f", potOdds) + ", smartHU=" + smartHuExploitMode + ", depthRatio="
+        + String.format("%.3f", depthRatio) + ", focusArchetype=" + focusArchetype + ", board="
+        + cardsToString(board) + ", hole=" + cardsToString(super.getHand()));
     return action;
   }
 

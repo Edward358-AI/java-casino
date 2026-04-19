@@ -15,3 +15,16 @@ Phase8VerificationSuite.java
 *.patch
 track*.sh
 get_imports.sh
+
+# Runtime diagnostics and local scratch files
+bot_diagnostics.jsonl
+test_async.txt
+testCmds.txt
+testDiag.java
+
+# Local one-off patch/fix helpers
+patch.py
+patch_all.py
+patch_game_snapshots.sh
+fix_hud.py
+update_preflop.sh

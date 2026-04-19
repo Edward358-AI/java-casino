@@ -330,12 +330,20 @@ public class PokerSimulator {
         double t2ProfitSquares = 0;
 
         int pairCount = 0;
+        SimEngine engine = new SimEngine(new int[]{t1, t2}, false, isProtectedMode, nightmareIntensity);
+        PokerBot botA = engine.bots.get(0);
         
         System.out.println("Executing " + pairs + " duplicate pairs...");
         
         while (pairCount < pairs) {
             pairCount++;
-            SimEngine engine = new SimEngine(new int[]{t1, t2}, false, isProtectedMode, nightmareIntensity);
+            // Preserve model memory across pairs while resetting chip state.
+            // Canonicalize order so pass-1 accounting remains Bot A index 0 / Bot B index 1.
+            if (engine.bots.get(0) != botA) {
+                PokerBot tempBot = engine.bots.get(0);
+                engine.bots.set(0, engine.bots.get(1));
+                engine.bots.set(1, tempBot);
+            }
             
             for(PokerBot b : engine.bots) {
                 b.removeChips(b.getChips());
@@ -384,6 +392,13 @@ public class PokerSimulator {
             if (engine.bots.get(1).getChips() == 0) t1Busts++;
             if (winner2 == 0) t2Wins++; else if (winner2 == 1) t1Wins++;
             else if (winner2 == -1) { t1Wins++; t2Wins++; }
+
+            // Restore canonical order for next pair.
+            if (engine.bots.get(0) != botA) {
+                PokerBot swapBack = engine.bots.get(0);
+                engine.bots.set(0, engine.bots.get(1));
+                engine.bots.set(1, swapBack);
+            }
         }
 
         String name1 = (t1==0?"Dumb":(t1==1?"Smart":"God"));

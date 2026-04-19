@@ -1,6 +1,7 @@
 import java.util.*;
 
 class PokerGame {
+  private static final ThreadLocal<PokerGame> ACTIVE_GAME = new ThreadLocal<>();
   private PokerDeck p = new PokerDeck();
   private PokerPlayer[] players;
   private int blinds = 20; // current blinds size
@@ -27,6 +28,24 @@ class PokerGame {
   private boolean[] foldedToCbet;
   private boolean cbetFiredOnFlop = false;
   private int cbetAggressorIndex = -1;
+
+  // Smart HU leak tracking (live table path): mirrors simulator observations.
+  private boolean huSmartGod = false;
+  private String huSmartName = null;
+  private int huSmartIdx = -1;
+  private int huGodIdx = -1;
+  private int huPreflopRaiseCount = 0;
+  private int huPreflopLastRaiser = -1;
+  private boolean huSmartFacing3BetPending = false;
+  private boolean huFlopCbetResponsePending = false;
+  private boolean huGodCbetFlopSeen = false;
+  private int huTurnFirstActor = -1;
+  private boolean huTurnFirstActorChecked = false;
+  private boolean huTurnCheckBackObserved = false;
+  private boolean huTurnBarrelResponsePending = false;
+  private boolean huTurnBarrelSeen = false;
+  private boolean huRiverLargeBetResponsePending = false;
+  private boolean huRiverLargeBetSeen = false;
   
   // PHASE 8 COGNITIVE MATRIX: Street Tracking State
   // 0 = Preflop, 1 = Flop, 2 = Turn, 3 = River
@@ -34,6 +53,7 @@ class PokerGame {
   public boolean isShowdown = false;
 
   public PokerGame(PokerPlayer[] players) { // initialiaze a poker game
+    ACTIVE_GAME.set(this);
     this.players = players;
     mainPlayer = players[0];
     mp = new PlayerStat(0);
@@ -53,8 +73,51 @@ class PokerGame {
     pot = new PokerPot(this.players);
   }
 
+  public static PokerGame getActiveGame() {
+    return ACTIVE_GAME.get();
+  }
+
+  public int getCurrentHandNumber() {
+    return hands + 1;
+  }
+
   public PlayerStat getStats() {
     return mp;
+  }
+
+
+  private String cardsToString(Card[] cards) {
+    if (cards == null || cards.length == 0) return "(none)";
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < cards.length; i++) {
+      if(cards[i] != null) sb.append(cards[i].getValue()).append(" ");
+    }
+    return sb.toString().trim();
+  }
+
+  private String seatRoleTag(int idx) {
+    if (idx == 0) return "SB";
+    if (idx == 1) return "BB";
+    if (idx == players.length - 1) return "D";
+    return "-";
+  }
+
+  private String getTransparencySnapshot(String phase, Card[] board, int actingIndex) {
+    StringBuilder sb = new StringBuilder();
+    String boardText = (board == null) ? "(preflop)" : cardsToString(board);
+    sb.append("[TABLE TRACE][").append(phase).append("] board=").append(boardText).append(", pot=").append(pot.getTotalPot())
+        .append(", tableBet=").append(currBet).append(", lastRaise=").append(lastRaise).append("\n");
+    for (int seat = 0; seat < players.length; seat++) {
+      PokerPlayer pl = players[seat];
+      if (pl == null) continue;
+      int contributed = (currConts != null && seat < currConts.length) ? currConts[seat] : 0;
+      String acting = (seat == actingIndex) ? " <- ACTING" : "";
+      sb.append("  seat=").append(seat).append(" [").append(seatRoleTag(seat)).append("] name=").append(pl.getName()).append(", inHand=")
+          .append(pl.inHand()).append(", chips=").append(pl.getChips()).append(", contributed=").append(contributed).append(", hole=")
+          .append(cardsToString(pl.getHand())).append(acting).append("\n");
+    }
+    sb.append("\n");
+    return sb.toString();
   }
 
   public void init() { // start the main loop
@@ -78,6 +141,7 @@ class PokerGame {
   }
 
   private void preflop() { // code to execute preflop
+    resetHuSmartLeakTracking();
     currentStreet = 0;
     isShowdown = false; // PHASE 8: Reset showdown state
     currBet = blinds;
@@ -168,10 +232,15 @@ class PokerGame {
     } else {
       roundName += "\n";
     }
+    Utils.clearScreen();
+    System.out.print(getTransparencySnapshot("PREFLOP-DEAL", null, -1));
+    System.out.print(roundName + pot.toString() + "\n\n");
+
     String roundHistory = "";
     do {
       if (players[i].inHand() && players[i].getChips() > 0) {
         Utils.clearScreen();
+        System.out.print(getTransparencySnapshot("PREFLOP-TURN", null, i));
         System.out.print(roundName + pot.toString() + "\n\n" + roundHistory);
 
         String turnHeader = players[i].getName().toUpperCase() + "'s turn!\n";
@@ -187,13 +256,16 @@ class PokerGame {
         if (players[i] instanceof PokerBot) {
           PokerBot temp = (PokerBot) players[i];
           int livePot = pot.getTotalPot();
-          for(int c : currConts) livePot += c;
-          currAction = temp.action("preflop", currConts[i], currBet, blinds, lastRaise, null, livePot, players, i, preflopAggressorIndex, 0, 1);
+          for (int c : currConts)
+            livePot += c;
+          currAction = temp.action("preflop", currConts[i], currBet, blinds, lastRaise, null, livePot, players, i,
+              preflopAggressorIndex, 0, 1);
         } else {
           System.out.println("Are you " + players[i].getName() + "? Press Enter to confirm and show your hand...");
           Utils.flushInput();
           sc.nextLine();
           Utils.clearScreen();
+          System.out.print(getTransparencySnapshot("PREFLOP-TURN", null, i));
           System.out.print(roundName + pot.toString() + "\n\n" + roundHistory);
           System.out.print(turnHeader);
           currAction = players[i].action("preflop", currConts[i], currBet, blinds, lastRaise);
@@ -201,28 +273,34 @@ class PokerGame {
 
         String actionLog = handleAction(i);
         if (currAction[0] == 3 || currAction[0] == 4) {
-          if (currAction[1] > 0) preflopAggressorIndex = i;
+          if (currAction[1] > 0)
+            preflopAggressorIndex = i;
         }
         if (!(players[i] instanceof PokerBot))
           actionLog += " (real)";
-        // Reprint with updated stack after action
+
+        // Reprint with updated state after action.
         turnHeader = players[i].getName().toUpperCase() + "'s turn!\n";
         turnHeader += "Their stack: ✨" + players[i].getChips() + "\n";
         Utils.clearScreen();
+        System.out.print(getTransparencySnapshot("PREFLOP-AFTER-ACTION", null, i));
         System.out.print(roundName + pot.toString() + "\n\n" + roundHistory);
         System.out.print(turnHeader);
         System.out.println(actionLog + "\n");
 
         roundHistory += turnHeader + actionLog + "\n\n";
-        if (!skipMode) Utils.sleep(1000);
+        if (!skipMode)
+          Utils.sleep(1000);
       }
       if (i == players.length - 1)
         i = 0;
       else
         i++;
     } while (i != lastPlayer && stillIn() > 1);
+
     finalizePreflopTelemetry();
     Utils.clearScreen();
+    System.out.print(getTransparencySnapshot("PREFLOP-END", null, -1));
     System.out.print(roundName + pot.toString() + "\n\n" + roundHistory);
     if (!skipMode && realPlayersIn() == 0) {
       System.out.println("Type \"skip\" to fast forward the hand, or hit enter to continue:");
@@ -264,6 +342,17 @@ class PokerGame {
     int i = 0;
     for (int j = 0; j < 3; j++) {
       currentStreet = j + 1; // PHASE 8: 1=Flop, 2=Turn, 3=River
+      if (currentStreet == 2) {
+        huTurnFirstActor = -1;
+        huTurnFirstActorChecked = false;
+        huTurnCheckBackObserved = false;
+        huTurnBarrelResponsePending = false;
+        huTurnBarrelSeen = false;
+      }
+      if (currentStreet == 3) {
+        huRiverLargeBetResponsePending = false;
+        huRiverLargeBetSeen = false;
+      }
       String roundName = ((j == 0) ? "*** THE FLOP ***\n"
           : ((j == 1) ? "*** THE TURN (4th Street) ***\n" : "*** THE RIVER (5th Street) ***\n"));
       String realPlayerOrder = "Real player order: ";
@@ -300,6 +389,7 @@ class PokerGame {
       } else {
         roundName += "\n";
       }
+
       String roundHistory = "";
       do {
         if (players[i].inHand() && players[i].getChips() > 0) {
@@ -307,6 +397,8 @@ class PokerGame {
               + ((j > 0) ? ("  - " + b[3].getValue()) : "") + ((j == 2) ? "  - " + b[4].getValue() : "");
 
           Utils.clearScreen();
+          Card[] visibleBoard = boardForBot.toArray(new Card[0]);
+          System.out.print(getTransparencySnapshot("POSTFLOP-TURN", visibleBoard, i));
           System.out.print(roundName + boardStr + "\n\n" + pot.toString() + "\n\n" + roundHistory);
 
           String turnHeader = players[i].getName().toUpperCase() + "'s turn!\n";
@@ -329,6 +421,8 @@ class PokerGame {
             Utils.flushInput();
             sc.nextLine();
             Utils.clearScreen();
+            visibleBoard = boardForBot.toArray(new Card[0]);
+            System.out.print(getTransparencySnapshot("POSTFLOP-TURN", visibleBoard, i));
             System.out.print(roundName + boardStr + "\n\n" + pot.toString() + "\n\n" + roundHistory);
             System.out.print(turnHeader);
             currAction = players[i].action("postflop", currConts[i], currBet, blinds, lastRaise);
@@ -341,6 +435,8 @@ class PokerGame {
           turnHeader = players[i].getName().toUpperCase() + "'s turn!\n";
           turnHeader += "Their stack: ✨" + players[i].getChips() + "\n";
           Utils.clearScreen();
+          Card[] visibleBoard2 = boardForBot.toArray(new Card[0]);
+          System.out.print(getTransparencySnapshot("POSTFLOP-AFTER-ACTION", visibleBoard2, i));
           System.out.print(roundName + boardStr + "\n\n" + pot.toString() + "\n\n" + roundHistory);
           System.out.print(turnHeader);
           System.out.println(actionLog + "\n");
@@ -357,6 +453,7 @@ class PokerGame {
       Utils.clearScreen();
       String boardStr = "Board: " + b[0].getValue() + "  - " + b[1].getValue() + "  - " + b[2].getValue()
           + ((j > 0) ? ("  - " + b[3].getValue()) : "") + ((j == 2) ? "  - " + b[4].getValue() : "");
+      System.out.print(getTransparencySnapshot("POSTFLOP-STREET-END", boardForBot.toArray(new Card[0]), -1));
       System.out.print(roundName + boardStr + "\n\n" + pot.toString() + "\n\n" + roundHistory);
       if (!skipMode && realPlayersIn() == 0 && j < 2) {
         System.out.println("Type \"skip\" to fast forward the hand, or hit enter to continue:");
@@ -510,6 +607,70 @@ class PokerGame {
     return ((PokerBot) player).getBotLevel() == 2; // Production mode: only God bots
   }
 
+  private void resetHuSmartLeakTracking() {
+    huSmartGod = false;
+    huSmartName = null;
+    huSmartIdx = -1;
+    huGodIdx = -1;
+    huPreflopRaiseCount = 0;
+    huPreflopLastRaiser = -1;
+    huSmartFacing3BetPending = false;
+    huFlopCbetResponsePending = false;
+    huGodCbetFlopSeen = false;
+    huTurnFirstActor = -1;
+    huTurnFirstActorChecked = false;
+    huTurnCheckBackObserved = false;
+    huTurnBarrelResponsePending = false;
+    huTurnBarrelSeen = false;
+    huRiverLargeBetResponsePending = false;
+    huRiverLargeBetSeen = false;
+  }
+
+  private void refreshHuSmartContext() {
+    int alivePlayers = 0;
+    int dumbCount = 0;
+    int smartCount = 0;
+    int godCount = 0;
+    int smartIdx = -1;
+    int godIdx = -1;
+
+    for (int idx = 0; idx < players.length; idx++) {
+      PokerPlayer p = players[idx];
+      if (p == null || p.getChips() <= 0)
+        continue;
+
+      alivePlayers++;
+      if (p instanceof PokerBot) {
+        int level = ((PokerBot) p).getBotLevel();
+        if (level == 0) {
+          dumbCount++;
+        } else if (level == 1) {
+          smartCount++;
+          smartIdx = idx;
+        } else if (level == 2) {
+          godCount++;
+          godIdx = idx;
+        }
+      }
+    }
+
+    huSmartGod = (alivePlayers == 2 && dumbCount == 0 && smartCount == 1 && godCount == 1);
+    if (huSmartGod) {
+      huSmartIdx = smartIdx;
+      huGodIdx = godIdx;
+      huSmartName = players[smartIdx].getName();
+      return;
+    }
+
+    huSmartName = null;
+    huSmartIdx = -1;
+    huGodIdx = -1;
+    huSmartFacing3BetPending = false;
+    huFlopCbetResponsePending = false;
+    huTurnBarrelResponsePending = false;
+    huRiverLargeBetResponsePending = false;
+  }
+
   private void markPreflopActionForTelemetry(int playerIndex, int preActionTableBet, int preActionContribution, int paid) {
     if (currentStreet != 0 || preflopVPIPFlags == null || preflopPFRFlags == null)
       return;
@@ -539,8 +700,7 @@ class PokerGame {
       if (!shouldTrackCognitivePlayer(players[i]))
         continue;
       String pName = players[i].getName();
-      PokerBot.CognitiveProfile profile = PokerBot.getOrCreateCognitiveProfile(pName);
-      profile.updatePreflopTelemetry(preflopVPIPFlags[i], preflopPFRFlags[i], PREFLOP_EMA_ALPHA);
+      PokerBot.updatePreflopTelemetryTracked(pName, preflopVPIPFlags[i], preflopPFRFlags[i], PREFLOP_EMA_ALPHA);
     }
 
     preflopVPIPFlags = null;
@@ -598,23 +758,22 @@ class PokerGame {
       if (!shouldTrackCognitivePlayer(players[i]))
         continue;
       String pName = players[i].getName();
-      PokerBot.CognitiveProfile profile = PokerBot.getOrCreateCognitiveProfile(pName);
 
       for (int street = 1; street <= 3; street++) {
         int opps = postflopAggressionOpportunities[i][street];
         if (opps > 0) {
           double afqValue = (double) postflopAggressionActions[i][street] / opps;
-          profile.updateEMA(getAFqStreetStatKey(street), afqValue, POSTFLOP_EMA_ALPHA);
+          PokerBot.updateCognitiveStatTracked(pName, getAFqStreetStatKey(street), afqValue, POSTFLOP_EMA_ALPHA);
         }
       }
 
       if (foldToCbetOpportunity[i]) {
-        profile.updateEMA("FoldToCBet", foldedToCbet[i] ? 1.0 : 0.0, POSTFLOP_EMA_ALPHA);
+        PokerBot.updateCognitiveStatTracked(pName, "FoldToCBet", foldedToCbet[i] ? 1.0 : 0.0, POSTFLOP_EMA_ALPHA);
       }
 
       if (sawFlopThisHand != null && sawFlopThisHand[i]) {
         boolean reachedShowdown = (showdownMode == 1 && players[i].inHand());
-        profile.updateEMA("WTSD", reachedShowdown ? 1.0 : 0.0, POSTFLOP_EMA_ALPHA);
+        PokerBot.updateCognitiveStatTracked(pName, "WTSD", reachedShowdown ? 1.0 : 0.0, POSTFLOP_EMA_ALPHA);
       }
     }
 
@@ -632,6 +791,27 @@ class PokerGame {
     int paid = 0;
     int preActionTableBet = currBet;
     int preActionContribution = currConts[i];
+    int preActionPot = pot.getTotalPot();
+
+    refreshHuSmartContext();
+    boolean actorIsHuSmart = huSmartGod && i == huSmartIdx;
+    boolean actorIsHuGod = huSmartGod && i == huGodIdx;
+
+    if (!(players[i] instanceof PokerBot)) {
+       String actionLabel = "UNKNOWN";
+       int amount = currAction[1];
+       if (currAction[0] == 1) { 
+           actionLabel = (amount == 0 && currConts[i] == currBet) ? "CHECK" : "CALL";
+       } else if (currAction[0] == 2) {
+           actionLabel = "FOLD";
+           amount = 0;
+       } else if (currAction[0] >= 3) {
+           actionLabel = (currAction[0] == 4) ? "ALL-IN" : "BET/RAISE";
+       }
+       BotDiagnostics.recordPlayerDecision((currentStreet == 0 ? "PREFLOP" : (currentStreet == 1 ? "FLOP" : (currentStreet == 2 ? "TURN" : "RIVER"))),
+              players[i].getName(), actionLabel, currConts[i] + amount,
+              "tableBet=" + currBet + ", prevBet=" + currConts[i]);
+    }
     
     switch (currAction[0]) {
       case 1: // CALL/CHECK
@@ -693,6 +873,70 @@ class PokerGame {
         }
         break;
     }
+
+    boolean actionIsFold = (currAction[0] == 2);
+    boolean actionIsCheck = (currAction[0] == 1 && preActionTableBet == 0 && currConts[i] == preActionContribution);
+    boolean actionIsAggressive = (currConts[i] > preActionTableBet);
+
+    if (huSmartGod) {
+      if (currentStreet == 0) {
+        if (actionIsAggressive) {
+          huPreflopRaiseCount++;
+          if (huPreflopRaiseCount >= 2 && actorIsHuGod && huPreflopLastRaiser == huSmartIdx) {
+            huSmartFacing3BetPending = true;
+          }
+          huPreflopLastRaiser = i;
+        }
+
+        if (huSmartFacing3BetPending && actorIsHuSmart) {
+          PokerBot.observeSmartFoldTo3BetHU(huSmartName, actionIsFold);
+          huSmartFacing3BetPending = false;
+        }
+      } else if (currentStreet == 1) {
+        if (actorIsHuGod && preflopAggressorIndex == huGodIdx && preActionTableBet == 0 && actionIsAggressive) {
+          huFlopCbetResponsePending = true;
+          huGodCbetFlopSeen = true;
+        }
+
+        if (huFlopCbetResponsePending && actorIsHuSmart) {
+          PokerBot.observeSmartFlopCbetResponseHU(huSmartName, actionIsFold, actionIsAggressive);
+          huFlopCbetResponsePending = false;
+        }
+      } else if (currentStreet == 2) {
+        if (huTurnFirstActor == -1) {
+          huTurnFirstActor = i;
+          huTurnFirstActorChecked = actionIsCheck;
+        } else if (!huTurnCheckBackObserved && actorIsHuSmart && huTurnFirstActor == huGodIdx && huTurnFirstActorChecked) {
+          PokerBot.observeSmartTurnCheckBackHU(huSmartName, actionIsCheck);
+          huTurnCheckBackObserved = true;
+        }
+
+        if (!huTurnBarrelSeen && huGodCbetFlopSeen && actorIsHuGod && actionIsAggressive) {
+          huTurnBarrelResponsePending = true;
+          huTurnBarrelSeen = true;
+        }
+
+        if (huTurnBarrelResponsePending && actorIsHuSmart) {
+          PokerBot.observeSmartTurnBarrelResponseHU(huSmartName, actionIsFold);
+          huTurnBarrelResponsePending = false;
+        }
+      } else if (currentStreet == 3) {
+        if (!huRiverLargeBetSeen && actorIsHuGod && actionIsAggressive) {
+          int wagerSize = currConts[i] - preActionTableBet;
+          int largeBetThreshold = Math.max(blinds * 2, (int) (preActionPot * 0.75));
+          if (wagerSize >= largeBetThreshold) {
+            huRiverLargeBetResponsePending = true;
+            huRiverLargeBetSeen = true;
+          }
+        }
+
+        if (huRiverLargeBetResponsePending && actorIsHuSmart) {
+          PokerBot.observeSmartRiverLargeBetResponseHU(huSmartName, actionIsFold);
+          huRiverLargeBetResponsePending = false;
+        }
+      }
+    }
+
     markPreflopActionForTelemetry(i, preActionTableBet, preActionContribution, paid);
     markPostflopActionForTelemetry(i, preActionTableBet, preActionContribution, paid);
     return log;
