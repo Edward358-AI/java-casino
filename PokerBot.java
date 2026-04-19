@@ -58,7 +58,13 @@ public class PokerBot extends PokerPlayer {
       private boolean hasLastStylePoint = false;
 
       public double getAggressionFactor() {
-        return handsPlayed == 0 ? 0.0 : (double) aggressiveActions / Math.max(1, handsPlayed);
+        if (handsPlayed == 0) {
+          return 0.0;
+        }
+        // Backward-compatible aggression signal now sourced from live EMAs.
+        double postflopBlend = getPostflopAFqBlend();
+        double legacy = (double) aggressiveActions / Math.max(1, handsPlayed);
+        return clamp01((pfrEMA * 0.35) + (postflopBlend * 0.50) + (legacy * 0.15));
       }
 
       private double clamp01(double v) {
@@ -285,6 +291,7 @@ public class PokerBot extends PokerPlayer {
   public static void updatePreflopTelemetryTracked(String playerName, boolean vpip, boolean pfr, double alpha) {
     CognitiveProfile profile = getOrCreateCognitiveProfile(playerName);
     CognitiveArchetype before = profile.getArchetype();
+    profile.handsPlayed++;
     profile.updatePreflopTelemetry(vpip, pfr, alpha);
     CognitiveArchetype after = profile.getArchetype();
     BotDiagnostics.recordArchetypeShift(playerName, before, after, profile, "preflopTelemetry");
@@ -310,7 +317,8 @@ public class PokerBot extends PokerPlayer {
   private boolean revealTags = false; // Persistent memory for trigger detection
   private boolean nightmareActive = false; // Persistent memory for nightmare mode
   private boolean protectedMode = false; // "Protected Mode": Strips exploits for pure GTO testing
-  private int nightmareIntensity = 1; // 1=baseline, 2=adaptive, 3=adaptive+memory
+  private boolean neuralProtectedMode = false; // Simulator-only neural sandbox (valid only with Protected Mode)
+  private int nightmareIntensity = 2; // Fixed adaptive nightmare mode
 
   public PokerBot(PokerPlayer[] currentPlayers) {
     super("temp");
@@ -394,12 +402,29 @@ public class PokerBot extends PokerPlayer {
 
   public void setProtectedMode(boolean val) {
     this.protectedMode = val;
-    if (val) predatoryIntent = false; // Immediately disable aggression
+    if (val) {
+      predatoryIntent = false; // Immediately disable aggression
+    } else {
+      neuralProtectedMode = false; // Hard guard: neural sandbox cannot survive outside protected mode.
+    }
     refreshNameTag(null);
   }
 
+  public void setNeuralProtectedMode(boolean enabled) {
+    // Neural sandbox is constrained to Protected Mode by design.
+    this.neuralProtectedMode = enabled && this.protectedMode;
+  }
+
+  public boolean isNeuralProtectedMode() {
+    return protectedMode && neuralProtectedMode;
+  }
+
+  private boolean neuralSandboxEnabled() {
+    return protectedMode && neuralProtectedMode;
+  }
+
   public void setNightmareIntensity(int val) {
-    this.nightmareIntensity = Math.max(1, Math.min(3, val));
+    this.nightmareIntensity = 2;
   }
 
   public int getNightmareIntensity() {
@@ -838,9 +863,15 @@ public class PokerBot extends PokerPlayer {
       }
     }
 
+    boolean neuralSandbox = neuralSandboxEnabled();
+    boolean pureProtectedGtoMode = protectedMode && !neuralSandbox;
+    // Protected-only baseline intentionally masks bot-tier tracking for pure GTO behavior.
+    int scriptedDumbBotCount = pureProtectedGtoMode ? 0 : dumbBotCount;
+    int scriptedSmartBotCount = pureProtectedGtoMode ? 0 : smartBotCount;
+
     String smartHuOpponent = null;
     int smartHuStack = 0;
-    if (headsUpTable && smartBotCount == 1 && dumbBotCount == 0) {
+    if (headsUpTable && scriptedSmartBotCount == 1 && scriptedDumbBotCount == 0) {
       for (PokerPlayer p : players) {
         if (p == null || p == this || !p.inHand())
           continue;
@@ -856,7 +887,7 @@ public class PokerBot extends PokerPlayer {
     double smartHuDepthRatio = smartHuExploitMode ? ((double) super.getChips() / smartHuStack) : 1.0;
     
     // Split-Brain Trigger: Only be "Spicy" if only Humans or other God Bots are in the pot
-    boolean isThinkingOpponentOnly = (dumbBotCount == 0 && smartBotCount == 0);
+    boolean isThinkingOpponentOnly = (!pureProtectedGtoMode && scriptedDumbBotCount == 0 && scriptedSmartBotCount == 0);
     
     // PHASE 4: Universal Split-Personality Parameters (Active across all table sizes if in Nightmare Mode)
     boolean isNightmareMode = false;
@@ -896,6 +927,9 @@ public class PokerBot extends PokerPlayer {
         continue;
       }
 
+      if (pureProtectedGtoMode)
+        continue;
+
       if (foundHumanFocus)
         continue;
 
@@ -914,14 +948,15 @@ public class PokerBot extends PokerPlayer {
         + ", blind=" + blind + ", lastRaise=" + lastRaise + ", seatIndex=" + seatIndex + ", relativePos="
         + relativePos + ", paired=" + paired + ", suited=" + suited + ", premium=" + premium
         + ", headsUpTable=" + headsUpTable + ", smartHU=" + smartHuExploitMode + ", focusArchetype="
-        + focusArchetype + ", maxHumanAgg=" + maxHumanAggression + ", isGB=" + isGB + ", isGS=" + isGS);
+        + focusArchetype + ", maxHumanAgg=" + maxHumanAggression + ", isGB=" + isGB + ", isGS=" + isGS
+        + ", neuralSandbox=" + neuralSandbox);
     
     boolean stealRange = paired || numhand[1] >= 14 || (suited && numhand[1] - numhand[0] <= 4);
     boolean smartPressureRange = smartHuExploitMode && (paired || numhand[1] >= 12 || (suited && numhand[1] - numhand[0] <= 5));
     
     // GTO Hardening: Balanced Early Range (Matching Smart Bot + Suited Wheel Aces) - SPICY MODE ONLY
-    boolean wheelAce = !protectedMode && isThinkingOpponentOnly && (suited && numhand[1] == 14 && numhand[0] >= 2 && numhand[0] <= 9) && !isGS;
-    boolean faceCards = !protectedMode && isThinkingOpponentOnly && ((numhand[1] >= 13 && numhand[0] >= 10) || (numhand[1] == 12 && numhand[0] >= 11));
+    boolean wheelAce = (!protectedMode || neuralSandbox) && isThinkingOpponentOnly && (suited && numhand[1] == 14 && numhand[0] >= 2 && numhand[0] <= 9) && !isGS;
+    boolean faceCards = (!protectedMode || neuralSandbox) && isThinkingOpponentOnly && ((numhand[1] >= 13 && numhand[0] >= 10) || (numhand[1] == 12 && numhand[0] >= 11));
     boolean earlyRange = premium || paired || faceCards || wheelAce;
     
     // Mixed Strategy Anomaly (15%): Playing GTO Gappers/Trash from any position - SPICY MODE ONLY
@@ -932,7 +967,7 @@ public class PokerBot extends PokerPlayer {
     if (gtoFallback) mixedFreq = 0.0; // Pure baseline vs volatile/elite profiles.
     else if (exploitNit) mixedFreq = Math.min(0.50, mixedFreq + 0.10); // Attack over-folding ranges.
     else if (exploitStation) mixedFreq = Math.max(0.0, mixedFreq - 0.10); // Reduce low-EV air vs sticky callers.
-    boolean mixedStrategy = !protectedMode && isThinkingOpponentOnly && (Math.random() < mixedFreq && (suited && numhand[1] - numhand[0] <= 5));
+    boolean mixedStrategy = (!protectedMode || neuralSandbox) && isThinkingOpponentOnly && (Math.random() < mixedFreq && (suited && numhand[1] - numhand[0] <= 5));
     
     // Heads-Up Tournament Protocol: Any Ace, King, Queen or Pair becomes Premium
     if (headsUpTable) {
@@ -960,7 +995,7 @@ public class PokerBot extends PokerPlayer {
       int intended = (bet > blind) ? (bet * 3) : (blind * 3);
       int raiseTo = Math.min(Math.max(intended, bet + lastRaise), super.getChips() + prevBet);
       action[1] = raiseTo - prevBet;
-    } else if (bet > blind && (isThinkingOpponentOnly || maxHumanAggression > 0.0 || smartHuExploitMode) && !protectedMode) {
+    } else if (bet > blind && (isThinkingOpponentOnly || maxHumanAggression > 0.0 || smartHuExploitMode) && (!protectedMode || neuralSandbox)) {
       // SPICY MODE: Active Defense Logic
       double threeBetChance = isGB ? 0.50 : (isGS ? 0.20 : 0.35); // 35% chance to re-raise bluffs
 
@@ -1217,11 +1252,17 @@ public class PokerBot extends PokerPlayer {
          }
       }
     }
+    boolean neuralSandbox = neuralSandboxEnabled();
+    boolean pureProtectedGtoMode = protectedMode && !neuralSandbox;
+    // Protected-only baseline intentionally masks bot-tier tracking for pure GTO behavior.
+    int scriptedDumbBotCount = pureProtectedGtoMode ? 0 : dumbBotCount;
+    int scriptedSmartBotCount = pureProtectedGtoMode ? 0 : smartBotCount;
+
     boolean headsUpHand = (activeCount == 2);
     double depthRatio = (largestOpponentStack > 0) ? (double) super.getChips() / largestOpponentStack : 1.0;
 
     String smartHuOpponent = null;
-    if (headsUpHand && smartBotCount == 1 && dumbBotCount == 0) {
+    if (headsUpHand && scriptedSmartBotCount == 1 && scriptedDumbBotCount == 0) {
       for (PokerPlayer pr : players) {
         if (pr == null || pr == this || !pr.inHand())
           continue;
@@ -1235,7 +1276,7 @@ public class PokerBot extends PokerPlayer {
     boolean smartHuExploitMode = (smartHuLeak != null && !protectedMode);
     boolean smartDeficitRecovery = smartHuExploitMode && depthRatio < 0.72;
     boolean smartLockdown = smartHuExploitMode && depthRatio > 1.20;
-    boolean smartRecaptureMode = (!protectedMode && smartBotCount > 0 && depthRatio < 0.85);
+    boolean smartRecaptureMode = (!protectedMode && scriptedSmartBotCount > 0 && depthRatio < 0.85);
 
     // CHUNK 6: Postflop archetype-focused execution matrix target.
     CognitiveArchetype focusArchetype = CognitiveArchetype.UNKNOWN;
@@ -1257,6 +1298,9 @@ public class PokerBot extends PokerPlayer {
         continue;
       }
 
+      if (pureProtectedGtoMode)
+        continue;
+
       if (foundHumanFocus)
         continue;
 
@@ -1275,18 +1319,18 @@ public class PokerBot extends PokerPlayer {
     boolean isGB = (isNightmareMode && predatoryIntent && !protectedMode);
     boolean isGS = (isNightmareMode && !predatoryIntent && !protectedMode);
 
-    boolean isThinkingOpponentOnly = (dumbBotCount == 0 && smartBotCount == 0);
-    boolean isBeingBullied = (isThinkingOpponentOnly && depthRatio < 0.5 && !protectedMode);
+    boolean isThinkingOpponentOnly = (!pureProtectedGtoMode && scriptedDumbBotCount == 0 && scriptedSmartBotCount == 0);
+    boolean isBeingBullied = (isThinkingOpponentOnly && depthRatio < 0.5 && (!protectedMode || neuralSandbox));
     if (smartDeficitRecovery) {
       isBeingBullied = true;
     }
-    boolean fishPredatoryMode = (headsUpHand && dumbBotCount > 0 && !protectedMode);
+    boolean fishPredatoryMode = (headsUpHand && scriptedDumbBotCount > 0 && !protectedMode);
     boolean baselineNightmarePredatoryMode = (headsUpHand && isNightmareMode && predatoryIntent && !protectedMode);
     // Intensity 2+ unlocks adaptive pressure in God-only small fields (2-4 active players).
     boolean adaptiveNightmarePredatoryMode = (nightmareIntensity >= 2 && activeCount >= 2 && activeCount <= 4
       && isThinkingOpponentOnly && isNightmareMode && predatoryIntent && !protectedMode);
     boolean predatoryMode = fishPredatoryMode || baselineNightmarePredatoryMode || adaptiveNightmarePredatoryMode;
-    boolean exploitingSmartBot = (smartBotCount > 0 && dumbBotCount == 0 && !protectedMode); 
+    boolean exploitingSmartBot = (scriptedSmartBotCount > 0 && scriptedDumbBotCount == 0 && !protectedMode); 
     boolean minusOneActive = false;
     double bluffSizeVsSmart = (largestSmartStack > 0) ? (largestSmartStack * 0.5) + 1 : potSize;
 
@@ -1296,7 +1340,7 @@ public class PokerBot extends PokerPlayer {
         + draws[0] + "," + draws[1] + "], equity=" + equity + ", potOdds=" + potOdds + ", prevBet="
         + prevBet + ", tableBet=" + bet + ", pot=" + potSize + ", smartHU=" + smartHuExploitMode
         + ", depthRatio=" + depthRatio + ", focusArchetype=" + focusArchetype + ", predatoryMode="
-        + predatoryMode + ", cbetEligible=" + cbet);
+          + predatoryMode + ", cbetEligible=" + cbet + ", neuralSandbox=" + neuralSandbox);
     if (smartHuExploitMode) {
       double pressureBias = (smartHuLeak.foldToFlopCbetHUEMA - 0.5) * 0.25;
       bluffSizeVsSmart *= (1.0 + pressureBias);
@@ -1312,7 +1356,7 @@ public class PokerBot extends PokerPlayer {
      boolean soulReadSmartOverbet = false;
      boolean soulReadSmartMixed = false;
      double smartSizingRatio = 0.0;
-     if (!zeroBet && smartBotCount > 0 && !protectedMode) {
+    if (!zeroBet && scriptedSmartBotCount > 0 && !protectedMode) {
        double baseBet = (prevBet > 0) ? prevBet : blind;
        smartSizingRatio = (double) bet / Math.max(1.0, baseBet);
        soulReadSmartOverbet = smartSizingRatio >= 2.65;
@@ -1379,7 +1423,7 @@ public class PokerBot extends PokerPlayer {
       }
       boolean trapMode = (!protectedMode && isThinkingOpponentOnly && Math.random() < trapFreq && (board.length == 3 || board.length == 4));
       
-      if (dumbBotCount > 0 && largestDumbStack > 0 && !protectedMode) {
+        if (scriptedDumbBotCount > 0 && largestDumbStack > 0 && !protectedMode) {
           decisionReason = "minus-one exploit active versus dumb bot";
           act = 3; actAmount = Math.max(potSize, largestDumbStack - 1); // MINUS ONE EXPLOIT
           minusOneActive = true;
@@ -1411,7 +1455,7 @@ public class PokerBot extends PokerPlayer {
              }
           }
       }
-    } else if (myRank <= (headsUpHand ? 8 : 7) && dumbBotCount > 0 && !draws[0] && !draws[1]) {
+    } else if (myRank <= (headsUpHand ? 8 : 7) && scriptedDumbBotCount > 0 && !draws[0] && !draws[1]) {
       decisionReason = "thin value versus dumb bot range";
       // Hyper-Thin Value Betting vs Dumb Bots (Isolated 1v1 expands threshold to Any Pair)
       if (zeroBet) { act = 3; actAmount = potSize; }
@@ -1497,7 +1541,7 @@ public class PokerBot extends PokerPlayer {
           barrelFreq = Math.max(0.0, Math.min(1.0, barrelFreq + depthShift));
       }
       
-      if (dumbBotCount > 0) {
+        if (scriptedDumbBotCount > 0) {
           cbetFreq = (headsUpHand) ? 0.60 : 0.0; // PREDATORY BLUFFING 1v1 vs Dumb Bots
       }
 
@@ -1611,7 +1655,7 @@ public class PokerBot extends PokerPlayer {
           cbetFreq = Math.max(0.0, Math.min(1.0, cbetFreq + depthShift));
       }
 
-      if (dumbBotCount > 0) cbetFreq = (headsUpHand) ? 0.60 : 0.0; // PREDATORY BLUFFING 1v1 vs Dumb Bots
+      if (scriptedDumbBotCount > 0) cbetFreq = (headsUpHand) ? 0.60 : 0.0; // PREDATORY BLUFFING 1v1 vs Dumb Bots
 
       if (smartHuExploitMode) {
         cbetFreq += (smartHuLeak.foldToFlopCbetHUEMA - 0.50) * 0.35;
@@ -1639,7 +1683,7 @@ public class PokerBot extends PokerPlayer {
     }
     
     // Meta-Bluffing Level 3: Overbetting to exploit other God Bots who respect math
-    if (!protectedMode && godBotCount > 0 && dumbBotCount == 0 && Math.random() < 0.12 && act == 2) {
+    if (!protectedMode && godBotCount > 0 && scriptedDumbBotCount == 0 && Math.random() < 0.12 && act == 2) {
        decisionReason += " | meta-bluff override triggered";
        act = 3;
        actAmount = (int)(potSize * (1.5 + Math.random()));
@@ -1698,7 +1742,7 @@ public class PokerBot extends PokerPlayer {
        }
     }
     
-    if (dumbBotCount > 0 && act == 3 && myRank > 7 && !headsUpHand) {
+    if (scriptedDumbBotCount > 0 && act == 3 && myRank > 7 && !headsUpHand) {
       decisionReason += " | multiway dumb-bot bluff suppression";
       act = 1;
     } // Only eradicate bluffs in multi-player pots

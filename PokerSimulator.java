@@ -5,7 +5,8 @@ public class PokerSimulator {
     private static Scanner sc = Player.sc;
     private static int dumbCount, smartCount, godCount;
     private static boolean isProtectedMode = false;
-    private static int nightmareIntensity = 1;
+    private static boolean isNeuralProtectedMode = false;
+    private static int nightmareIntensity = 2;
     private static boolean parallelEnabled = false;
     private static int parallelThreads = Math.max(1, Runtime.getRuntime().availableProcessors());
 
@@ -14,6 +15,10 @@ public class PokerSimulator {
         while (true) {
             System.out.println("\n--- POKER SIMULATOR MENU ---");
             System.out.println("[Parallel Mode: " + (parallelEnabled ? ("ON @ " + parallelThreads + " threads") : "OFF") + "]");
+            String neuralStatus = isProtectedMode
+                ? (isNeuralProtectedMode ? "ON" : "OFF")
+                : "LOCKED (requires Protected Mode)";
+            System.out.println("[Neural Protected Mode: " + neuralStatus + "]");
             System.out.println("[1] Simulate 1 Hand (Interactive)");
             System.out.println("[2] Simulate 1 Game (Standard)");
             System.out.println("[3] Simulate N Hands (Replacement Mode)");
@@ -45,11 +50,21 @@ public class PokerSimulator {
         dumbCount = Player.getValidInt("How many Dumb Bots? ", 0, 12);
         smartCount = Player.getValidInt("How many Smart Bots? ", 0, 12 - dumbCount);
         godCount = Player.getValidInt("How many God Bots? ", 0, 12 - dumbCount - smartCount);
-        nightmareIntensity = Player.getValidInt("Nightmare Intensity (1=baseline, 2=adaptive, 3=adaptive+memory): ", 1, 3);
+        nightmareIntensity = 2;
         
         System.out.print("Enable Protected Mode for all bots? (Strips exploits) [y/N]: ");
         String pIn = sc.nextLine();
         isProtectedMode = pIn.equalsIgnoreCase("y");
+
+        // Neural sandbox is only valid under Protected Mode to avoid conflicting with base God logic.
+        isNeuralProtectedMode = false;
+        if (isProtectedMode) {
+            System.out.print("Enable Neural Protected Mode? (Simulator-only profile sandbox) [y/N]: ");
+            String nIn = sc.nextLine();
+            isNeuralProtectedMode = nIn.equalsIgnoreCase("y");
+        } else {
+            System.out.println("Neural Protected Mode is unavailable while Protected Mode is OFF.");
+        }
 
         System.out.print("Enable Parallel Mode for bulk simulations? [y/N]: ");
         String parallelIn = sc.nextLine();
@@ -331,6 +346,7 @@ public class PokerSimulator {
 
         int pairCount = 0;
         SimEngine engine = new SimEngine(new int[]{t1, t2}, false, isProtectedMode, nightmareIntensity);
+        engine.setPerHandNeuralResetEnabled(isProtectedMode && isNeuralProtectedMode);
         PokerBot botA = engine.bots.get(0);
         
         System.out.println("Executing " + pairs + " duplicate pairs...");
@@ -448,6 +464,7 @@ public class PokerSimulator {
             PokerBot.resetThreadCognitiveDB();
             try {
                 SimEngine engine = new SimEngine(dumbCount, smartCount, godCount, false, isProtectedMode, nightmareIntensity, false);
+                engine.setPerHandNeuralResetEnabled(isProtectedMode && isNeuralProtectedMode);
                 engine.runIndividualContinuous(n, true);
             } finally {
                 PokerBot.clearThreadCognitiveDB();
@@ -468,6 +485,7 @@ public class PokerSimulator {
                 PokerBot.resetThreadCognitiveDB();
                 try {
                     SimEngine engine = new SimEngine(dumbCount, smartCount, godCount, false, isProtectedMode, nightmareIntensity, false);
+                    engine.setPerHandNeuralResetEnabled(isProtectedMode && isNeuralProtectedMode);
                     engine.runIndividualContinuous(handsForWorker, false);
                     local.absorbEngine(engine, null);
                 } finally {
@@ -555,16 +573,29 @@ public class PokerSimulator {
         private boolean interactive;
         private boolean replacementMode = false;
         private boolean protectedMode = false;
+        private boolean neuralProtectedMode = false;
         private PokerDeck deck = new PokerDeck();
         private boolean shouldShuffle = true;
         private int blinds = 20;
         private int[] duelLevels = null;
         private int nightmareIntensity;
+        private boolean resetNeuralMemoryEachHand = false;
 
         private long[] tierNetProfits = new long[3];
         private double[] tierSumSquaresOfProfits = new double[3];
         private long[] tierHandsPlayed = new long[3];
         private boolean isTrueEvMode = false;
+        private static final double PREFLOP_EMA_ALPHA = 0.35;
+        private static final double POSTFLOP_EMA_ALPHA = 0.35;
+        private boolean[] preflopVPIPFlags;
+        private boolean[] preflopPFRFlags;
+        private int[][] postflopAggressionActions;
+        private int[][] postflopAggressionOpportunities;
+        private boolean[] sawFlopThisHand;
+        private boolean[] foldToCbetOpportunity;
+        private boolean[] foldedToCbet;
+        private boolean cbetFiredOnFlop = false;
+        private int cbetAggressorIndex = -1;
 
         public SimEngine(int d, int s, int g, boolean interactive, boolean protectedMode) {
             this(d, s, g, interactive, protectedMode, 1, true);
@@ -579,6 +610,7 @@ public class PokerSimulator {
             this.dumbCount = d; this.smartCount = s; this.godCount = g;
             this.interactive = interactive;
             this.protectedMode = protectedMode;
+            this.neuralProtectedMode = protectedMode && PokerSimulator.isNeuralProtectedMode;
             this.nightmareIntensity = nightmareIntensity;
             this.shouldShuffle = shouldShuffle;
             initializeBots();
@@ -593,6 +625,7 @@ public class PokerSimulator {
             }
             this.interactive = interactive;
             this.protectedMode = protectedMode;
+            this.neuralProtectedMode = protectedMode && PokerSimulator.isNeuralProtectedMode;
             this.nightmareIntensity = nightmareIntensity;
             this.shouldShuffle = false;
             initializeBots();
@@ -616,11 +649,133 @@ public class PokerSimulator {
             PokerBot b = new PokerBot(unlocker);
             b.setBotLevel(level);
             b.setProtectedMode(protectedMode);
+            b.setNeuralProtectedMode(neuralProtectedMode);
             b.setNightmareIntensity(nightmareIntensity);
             b.refreshNameTag(unlocker); // Force refresh with the unlocker
             b.removeChips(b.getChips());
             b.addChips(400); // 20bb
             bots.add(b);
+        }
+
+        private boolean shouldTrackCognitiveBot(PokerBot bot) {
+            if (bot == null) return false;
+            if (protectedMode && !neuralProtectedMode) return false;
+            if (neuralProtectedMode) return true;
+            return bot.getBotLevel() == 2;
+        }
+
+        private int getStreetIndex(String street) {
+            if ("preflop".equals(street)) return 0;
+            if ("flop".equals(street)) return 1;
+            if ("turn".equals(street)) return 2;
+            if ("river".equals(street)) return 3;
+            return -1;
+        }
+
+        private void initCognitiveTelemetryBuffers(int numPlayers) {
+            preflopVPIPFlags = new boolean[numPlayers];
+            preflopPFRFlags = new boolean[numPlayers];
+            postflopAggressionActions = new int[numPlayers][4];
+            postflopAggressionOpportunities = new int[numPlayers][4];
+            sawFlopThisHand = new boolean[numPlayers];
+            foldToCbetOpportunity = new boolean[numPlayers];
+            foldedToCbet = new boolean[numPlayers];
+            cbetFiredOnFlop = false;
+            cbetAggressorIndex = -1;
+        }
+
+        private void markPreflopActionForTelemetry(int playerIndex, int preActionTableBet, int preActionContribution, int paid, int actionCode, int postActionContribution) {
+            if (preflopVPIPFlags == null || preflopPFRFlags == null) return;
+            if (playerIndex < 0 || playerIndex >= bots.size()) return;
+            PokerBot actor = bots.get(playerIndex);
+            if (!shouldTrackCognitiveBot(actor)) return;
+
+            boolean contributed = paid > 0 && postActionContribution > preActionContribution;
+            boolean isAggressiveAction = (actionCode == 3 || actionCode == 4);
+            boolean isRaise = isAggressiveAction && postActionContribution > preActionTableBet;
+
+            if (contributed && (actionCode == 1 || isAggressiveAction)) {
+                preflopVPIPFlags[playerIndex] = true;
+            }
+            if (isRaise) {
+                preflopPFRFlags[playerIndex] = true;
+                preflopVPIPFlags[playerIndex] = true;
+            }
+        }
+
+        private void finalizePreflopTelemetry() {
+            if (preflopVPIPFlags == null || preflopPFRFlags == null) return;
+            for (int i = 0; i < bots.size(); i++) {
+                PokerBot actor = bots.get(i);
+                if (!shouldTrackCognitiveBot(actor)) continue;
+                PokerBot.updatePreflopTelemetryTracked(actor.getName(), preflopVPIPFlags[i], preflopPFRFlags[i], PREFLOP_EMA_ALPHA);
+            }
+        }
+
+        private void markPostflopActionForTelemetry(int streetIndex, int playerIndex, int preActionTableBet, int preActionContribution, int paid, int actionCode, int postActionContribution, int preflopAggressorIndex) {
+            if (streetIndex < 1 || streetIndex > 3) return;
+            if (postflopAggressionActions == null || postflopAggressionOpportunities == null) return;
+            if (playerIndex < 0 || playerIndex >= bots.size()) return;
+            PokerBot actor = bots.get(playerIndex);
+            if (!shouldTrackCognitiveBot(actor)) return;
+
+            boolean isAggressiveAction = (actionCode == 3 || actionCode == 4) && postActionContribution > preActionTableBet;
+            boolean isCall = (actionCode == 1 && paid > 0);
+            boolean isFoldFacingBet = (actionCode == 2 && preActionTableBet > preActionContribution);
+
+            if (isAggressiveAction || isCall || isFoldFacingBet) {
+                postflopAggressionOpportunities[playerIndex][streetIndex]++;
+                if (isAggressiveAction) postflopAggressionActions[playerIndex][streetIndex]++;
+            }
+
+            if (streetIndex == 1) {
+                if (!cbetFiredOnFlop && preActionTableBet == 0 && playerIndex == preflopAggressorIndex && isAggressiveAction) {
+                    cbetFiredOnFlop = true;
+                    cbetAggressorIndex = playerIndex;
+                }
+                if (cbetFiredOnFlop && playerIndex != cbetAggressorIndex && preActionTableBet > preActionContribution) {
+                    foldToCbetOpportunity[playerIndex] = true;
+                    if (actionCode == 2) foldedToCbet[playerIndex] = true;
+                }
+            }
+        }
+
+        private String getAFqStreetStatKey(int street) {
+            if (street == 1) return "AFq_Flop";
+            if (street == 2) return "AFq_Turn";
+            if (street == 3) return "AFq_River";
+            return "AFq_Preflop";
+        }
+
+        private void finalizePostflopTelemetry(boolean reachedShowdown, boolean[] folded) {
+            if (postflopAggressionActions == null || postflopAggressionOpportunities == null) return;
+
+            for (int i = 0; i < bots.size(); i++) {
+                PokerBot actor = bots.get(i);
+                if (!shouldTrackCognitiveBot(actor)) continue;
+                String name = actor.getName();
+
+                for (int street = 1; street <= 3; street++) {
+                    int opps = postflopAggressionOpportunities[i][street];
+                    if (opps > 0) {
+                        double afqValue = (double) postflopAggressionActions[i][street] / opps;
+                        PokerBot.updateCognitiveStatTracked(name, getAFqStreetStatKey(street), afqValue, POSTFLOP_EMA_ALPHA);
+                    }
+                }
+
+                if (foldToCbetOpportunity[i]) {
+                    PokerBot.updateCognitiveStatTracked(name, "FoldToCBet", foldedToCbet[i] ? 1.0 : 0.0, POSTFLOP_EMA_ALPHA);
+                }
+
+                if (sawFlopThisHand != null && sawFlopThisHand[i]) {
+                    boolean survivedToShowdown = reachedShowdown && !folded[i];
+                    PokerBot.updateCognitiveStatTracked(name, "WTSD", survivedToShowdown ? 1.0 : 0.0, POSTFLOP_EMA_ALPHA);
+                }
+            }
+        }
+
+        public void setPerHandNeuralResetEnabled(boolean enabled) {
+            this.resetNeuralMemoryEachHand = enabled;
         }
 
         public int[] getBusts() { return bustsByTier; }
@@ -781,10 +936,14 @@ public class PokerSimulator {
         }
 
         public int runHand(int id, boolean verbose, boolean replacement, Card[][] fixedHole, Card[] fixedBoard) {
+            if (resetNeuralMemoryEachHand && protectedMode && neuralProtectedMode) {
+                PokerBot.resetThreadCognitiveDB();
+            }
             deck.reset();
             int numPlayers = bots.size();
             long[] initialChips = new long[numPlayers];
             for (int i = 0; i < numPlayers; i++) initialChips[i] = bots.get(i).getChips();
+            initCognitiveTelemetryBuffers(numPlayers);
 
             PokerPlayer[] participants = bots.toArray(new PokerPlayer[0]);
             PokerPot pot = new PokerPot(participants);
@@ -837,6 +996,9 @@ public class PokerSimulator {
                         board = new Card[3];
                         Card[] actualBoard = (fixedBoard != null) ? fixedBoard : deck.getBoard();
                         System.arraycopy(actualBoard, 0, board, 0, 3);
+                        for (int pIdx = 0; pIdx < numPlayers; pIdx++) {
+                            sawFlopThisHand[pIdx] = !folded[pIdx] && bots.get(pIdx).getChips() > 0;
+                        }
                     } else if (street.equals("turn")) {
                         board = new Card[4];
                         Card[] actualBoard = (fixedBoard != null) ? fixedBoard : deck.getBoard();
@@ -907,19 +1069,22 @@ public class PokerSimulator {
                         int preActionCurrentBet = currentBet;
                         int preActionContribution = contributions[i];
                         int preActionPot = pot.getTotalPot();
+                        int paid = 0;
                         // FIXED: Pass the actual preflopAggressorIndex
                         int[] action = actor.action(street, contributions[i], currentBet, blinds, lastRaise, board, pot.getTotalPot(), participants, i, preflopAggressorIndex, sbIdx, bbIdx);
 
                         boolean actionIsFold = (action[0] == 2);
                         boolean actionIsCheck = false;
                         boolean actionIsAggressive = false;
+                        boolean actorIsHuSmart = huSmartGod && i == huSmartIdx;
+                        boolean actorIsHuGod = huSmartGod && i == huGodIdx;
                         
                         if (actionIsFold) {
                             folded[i] = true;
                             if (interactive) System.out.println(actor.getName() + ": FOLDS");
                         } else {
                             int totalContribution = (action[0] == 1) ? (currentBet - contributions[i]) : action[1];
-                            int paid = Math.min(actor.getChips(), totalContribution);
+                            paid = Math.min(actor.getChips(), totalContribution);
                             contributions[i] += paid;
                             pot.addPlayerContribution(i, paid);
 
@@ -936,68 +1101,6 @@ public class PokerSimulator {
                                 }
                             }
 
-                            boolean actorIsHuSmart = huSmartGod && i == huSmartIdx;
-                            boolean actorIsHuGod = huSmartGod && i == huGodIdx;
-
-                            if (huSmartGod) {
-                                if (street.equals("preflop")) {
-                                    if (actionIsAggressive) {
-                                        preflopRaiseCount++;
-                                        if (preflopRaiseCount >= 2 && actorIsHuGod && preflopLastRaiser == huSmartIdx) {
-                                            huSmartFacing3BetPending = true;
-                                        }
-                                        preflopLastRaiser = i;
-                                    }
-
-                                    if (huSmartFacing3BetPending && actorIsHuSmart) {
-                                        PokerBot.observeSmartFoldTo3BetHU(huSmartName, actionIsFold);
-                                        huSmartFacing3BetPending = false;
-                                    }
-                                } else if (street.equals("flop")) {
-                                    if (actorIsHuGod && preflopAggressorIndex == huGodIdx && preActionCurrentBet == 0 && actionIsAggressive) {
-                                        huFlopCbetResponsePending = true;
-                                        huGodCbetFlopSeen = true;
-                                    }
-
-                                    if (huFlopCbetResponsePending && actorIsHuSmart) {
-                                        PokerBot.observeSmartFlopCbetResponseHU(huSmartName, actionIsFold, actionIsAggressive);
-                                        huFlopCbetResponsePending = false;
-                                    }
-                                } else if (street.equals("turn")) {
-                                    if (turnFirstActor == -1) {
-                                        turnFirstActor = i;
-                                        turnFirstActorChecked = actionIsCheck;
-                                    } else if (!turnCheckBackObserved && actorIsHuSmart && turnFirstActor == huGodIdx && turnFirstActorChecked) {
-                                        PokerBot.observeSmartTurnCheckBackHU(huSmartName, actionIsCheck);
-                                        turnCheckBackObserved = true;
-                                    }
-
-                                    if (!huTurnBarrelSeen && huGodCbetFlopSeen && actorIsHuGod && actionIsAggressive) {
-                                        huTurnBarrelResponsePending = true;
-                                        huTurnBarrelSeen = true;
-                                    }
-
-                                    if (huTurnBarrelResponsePending && actorIsHuSmart) {
-                                        PokerBot.observeSmartTurnBarrelResponseHU(huSmartName, actionIsFold);
-                                        huTurnBarrelResponsePending = false;
-                                    }
-                                } else if (street.equals("river")) {
-                                    if (!huRiverLargeBetSeen && actorIsHuGod && actionIsAggressive) {
-                                        int wagerSize = contributions[i] - preActionCurrentBet;
-                                        int largeBetThreshold = Math.max(blinds * 2, (int) (preActionPot * 0.75));
-                                        if (wagerSize >= largeBetThreshold) {
-                                            huRiverLargeBetResponsePending = true;
-                                            huRiverLargeBetSeen = true;
-                                        }
-                                    }
-
-                                    if (huRiverLargeBetResponsePending && actorIsHuSmart) {
-                                        PokerBot.observeSmartRiverLargeBetResponseHU(huSmartName, actionIsFold);
-                                        huRiverLargeBetResponsePending = false;
-                                    }
-                                }
-                            }
-
                             if (contributions[i] > currentBet) {
                                 int increment = contributions[i] - currentBet;
                                 if (increment >= lastRaise) {
@@ -1008,6 +1111,72 @@ public class PokerSimulator {
                                 playersActed = 0; // RESET Action counter on raise
                                 if (street.equals("preflop")) preflopAggressorIndex = i; // Track for C-bets
                             }
+                        }
+
+                        if (huSmartGod && !protectedMode) {
+                            if (street.equals("preflop")) {
+                                if (actionIsAggressive) {
+                                    preflopRaiseCount++;
+                                    if (preflopRaiseCount >= 2 && actorIsHuGod && preflopLastRaiser == huSmartIdx) {
+                                        huSmartFacing3BetPending = true;
+                                    }
+                                    preflopLastRaiser = i;
+                                }
+
+                                if (huSmartFacing3BetPending && actorIsHuSmart) {
+                                    PokerBot.observeSmartFoldTo3BetHU(huSmartName, actionIsFold);
+                                    huSmartFacing3BetPending = false;
+                                }
+                            } else if (street.equals("flop")) {
+                                if (actorIsHuGod && preflopAggressorIndex == huGodIdx && preActionCurrentBet == 0 && actionIsAggressive) {
+                                    huFlopCbetResponsePending = true;
+                                    huGodCbetFlopSeen = true;
+                                }
+
+                                if (huFlopCbetResponsePending && actorIsHuSmart) {
+                                    PokerBot.observeSmartFlopCbetResponseHU(huSmartName, actionIsFold, actionIsAggressive);
+                                    huFlopCbetResponsePending = false;
+                                }
+                            } else if (street.equals("turn")) {
+                                if (turnFirstActor == -1) {
+                                    turnFirstActor = i;
+                                    turnFirstActorChecked = actionIsCheck;
+                                } else if (!turnCheckBackObserved && actorIsHuSmart && turnFirstActor == huGodIdx && turnFirstActorChecked) {
+                                    PokerBot.observeSmartTurnCheckBackHU(huSmartName, actionIsCheck);
+                                    turnCheckBackObserved = true;
+                                }
+
+                                if (!huTurnBarrelSeen && huGodCbetFlopSeen && actorIsHuGod && actionIsAggressive) {
+                                    huTurnBarrelResponsePending = true;
+                                    huTurnBarrelSeen = true;
+                                }
+
+                                if (huTurnBarrelResponsePending && actorIsHuSmart) {
+                                    PokerBot.observeSmartTurnBarrelResponseHU(huSmartName, actionIsFold);
+                                    huTurnBarrelResponsePending = false;
+                                }
+                            } else if (street.equals("river")) {
+                                if (!huRiverLargeBetSeen && actorIsHuGod && actionIsAggressive) {
+                                    int wagerSize = contributions[i] - preActionCurrentBet;
+                                    int largeBetThreshold = Math.max(blinds * 2, (int) (preActionPot * 0.75));
+                                    if (wagerSize >= largeBetThreshold) {
+                                        huRiverLargeBetResponsePending = true;
+                                        huRiverLargeBetSeen = true;
+                                    }
+                                }
+
+                                if (huRiverLargeBetResponsePending && actorIsHuSmart) {
+                                    PokerBot.observeSmartRiverLargeBetResponseHU(huSmartName, actionIsFold);
+                                    huRiverLargeBetResponsePending = false;
+                                }
+                            }
+                        }
+
+                        int streetIndex = getStreetIndex(street);
+                        if (streetIndex == 0) {
+                            markPreflopActionForTelemetry(i, preActionCurrentBet, preActionContribution, paid, action[0], contributions[i]);
+                        } else {
+                            markPostflopActionForTelemetry(streetIndex, i, preActionCurrentBet, preActionContribution, paid, action[0], contributions[i], preflopAggressorIndex);
                         }
                     }
                     playersActed++;
@@ -1023,6 +1192,9 @@ public class PokerSimulator {
                             roundDone = true;
                         }
                     }
+                }
+                if (street.equals("preflop")) {
+                    finalizePreflopTelemetry();
                 }
                 if (interactive) {
                     System.out.println("[Enter to continue, or 'skip' for showdown]");
@@ -1041,60 +1213,70 @@ public class PokerSimulator {
                 winsByTier[bots.get(winnerIdx).getBotLevel()]++;
                 winningHand = "FOLD-OUT";
             } else {
-                List<Integer> winnerIndices = new ArrayList<>();
-                int bestRank = 10;
-                Card[] absoluteBest = new Card[5];
-                
-                for (int i=0; i<numPlayers; i++) {
-                    if (!folded[i]) {
-                        Card[] best = deck.getBestHand(bots.get(i).getHand(), board);
-                        int rank = deck.getRanking(best);
-                        
-                        if (rank < bestRank) {
-                            bestRank = rank; 
-                            winnerIndices.clear();
-                            winnerIndices.add(i);
-                            absoluteBest = best;
-                            winningHand = getRankingName(rank);
-                        } else if (rank == bestRank) {
-                            if (winnerIndices.isEmpty()) {
-                                winnerIndices.add(i);
-                                absoluteBest = best;
-                            } else {
-                                int comparison = deck.compareHands(absoluteBest, best);
-                                if (comparison == 2) { // 'best' is better
-                                    winnerIndices.clear();
-                                    winnerIndices.add(i);
-                                    absoluteBest = best;
-                                    winningHand = getRankingName(rank);
-                                } else if (comparison == 0) { // Exact tie
-                                    winnerIndices.add(i);
-                                }
-                            }
-                        }
+                int[] totalContributions = pot.getContributions().clone();
+                List<SidePot> sidePots = buildSidePots(totalContributions, folded);
+                Set<Integer> handWinners = new HashSet<>();
+                List<Integer> mainPotWinners = new ArrayList<>();
+                int paidOut = 0;
+
+                for (int pIdx = 0; pIdx < sidePots.size(); pIdx++) {
+                    SidePot sidePot = sidePots.get(pIdx);
+                    ShowdownOutcome outcome = resolveShowdownForEligible(sidePot.eligibleIndices, board);
+                    List<Integer> winnerIndices = outcome.winnerIndices;
+                    if (winnerIndices.isEmpty()) {
+                        continue;
                     }
-                }
-                
-                if (!winnerIndices.isEmpty()) {
-                    int share = winAmount / winnerIndices.size();
-                    int remainder = winAmount % winnerIndices.size();
-                    
-                    // Standard Tie-Breaker: Award remainder chips to players in order of index (earliest position)
-                    // Randomize the starting winner to prevent persistent Slot 0 bias
+
+                    if (pIdx == 0) {
+                        mainPotWinners = new ArrayList<>(winnerIndices);
+                        winningHand = getRankingName(outcome.bestRank);
+                    }
+
+                    int share = sidePot.amount / winnerIndices.size();
+                    int remainder = sidePot.amount % winnerIndices.size();
+
+                    // Randomize remainder distribution start to avoid seat-index bias.
                     int startWinner = (int)(Math.random() * winnerIndices.size());
                     for (int k = 0; k < winnerIndices.size(); k++) {
                         int winnerIdxInList = (startWinner + k) % winnerIndices.size();
                         int idx = winnerIndices.get(winnerIdxInList);
-                        
+
                         int amount = share + (remainder > 0 ? 1 : 0);
-                        if (remainder > 0) remainder--;
-                        
+                        if (remainder > 0) {
+                            remainder--;
+                        }
+
                         bots.get(idx).addChips(amount);
-                        winsByTier[bots.get(idx).getBotLevel()]++;
+                        handWinners.add(idx);
                     }
-                    winnerIdx = (winnerIndices.size() > 1) ? -1 : winnerIndices.get(0); // Return -1 for ties
+                    paidOut += sidePot.amount;
                 }
+
+                // Safety net: preserve chip conservation even if a rare edge case misses a slice.
+                int delta = winAmount - paidOut;
+                if (delta != 0) {
+                    if (!mainPotWinners.isEmpty()) {
+                        bots.get(mainPotWinners.get(0)).addChips(delta);
+                        handWinners.add(mainPotWinners.get(0));
+                    } else {
+                        for (int i = 0; i < numPlayers; i++) {
+                            if (!folded[i]) {
+                                bots.get(i).addChips(delta);
+                                handWinners.add(i);
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                for (int idx : handWinners) {
+                    winsByTier[bots.get(idx).getBotLevel()]++;
+                }
+                winnerIdx = (mainPotWinners.size() == 1) ? mainPotWinners.get(0) : -1;
             }
+
+            boolean reachedShowdown = (countActive(folded) > 1);
+            finalizePostflopTelemetry(reachedShowdown, folded);
                 
             // Track hand-level profit for BB/100 and variance
             long[] handProfits = new long[3];
@@ -1118,7 +1300,11 @@ public class PokerSimulator {
                         String oldName = bots.get(i).getName();
                         PokerPlayer[] unlocker = { new PokerPlayer("edj") };
                         PokerBot newBot = new PokerBot(unlocker);
-                        newBot.setBotLevel(lvl); newBot.refreshNameTag(unlocker);
+                        newBot.setBotLevel(lvl);
+                        newBot.setProtectedMode(protectedMode);
+                        newBot.setNeuralProtectedMode(neuralProtectedMode);
+                        newBot.setNightmareIntensity(nightmareIntensity);
+                        newBot.refreshNameTag(unlocker);
                         newBot.removeChips(newBot.getChips()); newBot.addChips(400);
                         bots.set(i, newBot);
                         if (verbose) rep += " | [Bust: " + oldName + " -> New " + newBot.getName() + "]";
@@ -1140,6 +1326,94 @@ public class PokerSimulator {
             int count = 0;
             for (boolean f : folded) if (!f) count++;
             return count;
+        }
+
+        private static class SidePot {
+            final int amount;
+            final List<Integer> eligibleIndices;
+
+            SidePot(int amount, List<Integer> eligibleIndices) {
+                this.amount = amount;
+                this.eligibleIndices = eligibleIndices;
+            }
+        }
+
+        private static class ShowdownOutcome {
+            final List<Integer> winnerIndices;
+            final int bestRank;
+
+            ShowdownOutcome(List<Integer> winnerIndices, int bestRank) {
+                this.winnerIndices = winnerIndices;
+                this.bestRank = bestRank;
+            }
+        }
+
+        private List<SidePot> buildSidePots(int[] totalContributions, boolean[] folded) {
+            List<SidePot> sidePots = new ArrayList<>();
+            TreeSet<Integer> thresholds = new TreeSet<>();
+            for (int c : totalContributions) {
+                if (c > 0) {
+                    thresholds.add(c);
+                }
+            }
+
+            int previousThreshold = 0;
+            for (int threshold : thresholds) {
+                int potAmount = 0;
+                List<Integer> eligibleIndices = new ArrayList<>();
+
+                for (int i = 0; i < totalContributions.length; i++) {
+                    int currentSlice = Math.min(totalContributions[i], threshold)
+                        - Math.min(totalContributions[i], previousThreshold);
+                    if (currentSlice > 0) {
+                        potAmount += currentSlice;
+                    }
+                    if (totalContributions[i] >= threshold && !folded[i]) {
+                        eligibleIndices.add(i);
+                    }
+                }
+
+                if (potAmount > 0 && !eligibleIndices.isEmpty()) {
+                    sidePots.add(new SidePot(potAmount, eligibleIndices));
+                }
+                previousThreshold = threshold;
+            }
+
+            return sidePots;
+        }
+
+        private ShowdownOutcome resolveShowdownForEligible(List<Integer> eligibleIndices, Card[] board) {
+            List<Integer> winnerIndices = new ArrayList<>();
+            int bestRank = 10;
+            Card[] absoluteBest = null;
+
+            for (int idx : eligibleIndices) {
+                Card[] best = deck.getBestHand(bots.get(idx).getHand(), board);
+                int rank = deck.getRanking(best);
+
+                if (rank < bestRank) {
+                    bestRank = rank;
+                    winnerIndices.clear();
+                    winnerIndices.add(idx);
+                    absoluteBest = best;
+                } else if (rank == bestRank) {
+                    if (absoluteBest == null) {
+                        winnerIndices.add(idx);
+                        absoluteBest = best;
+                    } else {
+                        int comparison = deck.compareHands(absoluteBest, best);
+                        if (comparison == 2) { // 'best' is better
+                            winnerIndices.clear();
+                            winnerIndices.add(idx);
+                            absoluteBest = best;
+                        } else if (comparison == 0) { // Exact tie
+                            winnerIndices.add(idx);
+                        }
+                    }
+                }
+            }
+
+            return new ShowdownOutcome(winnerIndices, bestRank);
         }
 
         private int[] getHeadsUpSmartGodPair(boolean[] folded) {
