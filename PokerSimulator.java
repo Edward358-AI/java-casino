@@ -153,7 +153,8 @@ public class PokerSimulator {
         int n = Player.getValidInt("How many hands to simulate?", 1, 1000000);
         if (n <= 0) n = Integer.MAX_VALUE;
         SimEngine engine = new SimEngine(dumbCount, smartCount, godCount, false, isProtectedMode, nightmareIntensity);
-        engine.runContinuous(n);
+        engine.runContinuous(n, false);
+        engine.printFinalReport(null, true);
     }
 
     private static void runNGames() {
@@ -193,7 +194,7 @@ public class PokerSimulator {
                 PokerBot.resetThreadCognitiveDB();
                 SimEngine engine = new SimEngine(dumbCount, smartCount, godCount, false, isProtectedMode, nightmareIntensity);
                 int winnerLevel = engine.runGame(maxHands, false);
-                System.out.println("Game #" + (i + 1) + " Winner: " + (winnerLevel == 0 ? "Dumb" : (winnerLevel == 1 ? "Smart" : "God")));
+                // System.out.println("Game #" + (i + 1) + " Winner: " + (winnerLevel == 0 ? "Dumb" : (winnerLevel == 1 ? "Smart" : "God")));
                 totals.absorbEngine(engine, winnerLevel);
             }
         } finally {
@@ -279,7 +280,7 @@ public class PokerSimulator {
                 SimEngine engine = new SimEngine(dumbCount, smartCount, godCount, false, isProtectedMode, nightmareIntensity);
                 engine.runContinuous(handsPerGame, false);
                 int winnerLevel = engine.getWinningTierByProfit();
-                System.out.println("Replacement Game #" + (i + 1) + " Most Profitable: " + (winnerLevel == 0 ? "Dumb" : (winnerLevel == 1 ? "Smart" : "God")));
+                // System.out.println("Replacement Game #" + (i + 1) + " Most Profitable: " + (winnerLevel == 0 ? "Dumb" : (winnerLevel == 1 ? "Smart" : "God")));
                 totals.absorbEngine(engine, winnerLevel);
             }
         } finally {
@@ -465,7 +466,10 @@ public class PokerSimulator {
             try {
                 SimEngine engine = new SimEngine(dumbCount, smartCount, godCount, false, isProtectedMode, nightmareIntensity, false);
                 engine.setPerHandNeuralResetEnabled(isProtectedMode && isNeuralProtectedMode);
-                engine.runIndividualContinuous(n, true);
+                engine.runIndividualContinuous(n, false);
+                SimulationTotals totals = new SimulationTotals();
+                totals.absorbEngine(engine, null);
+                printAggregatedTrueEvReport(n, totals);
             } finally {
                 PokerBot.clearThreadCognitiveDB();
             }
@@ -881,7 +885,7 @@ public class PokerSimulator {
             if (verbose) printFinalReport(null, true);
         }
 
-        private void printFinalReport(PokerBot overallWinner, boolean showBusts) {
+        public void printFinalReport(PokerBot overallWinner, boolean showBusts) {
             System.out.println("\n--- FINAL TELEMETRY REPORT ---");
             if (overallWinner != null) {
                 System.out.println("Winner: " + overallWinner.getName() + " [" + getTierCode(overallWinner.getBotLevel()) + "]");
