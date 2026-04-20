@@ -347,7 +347,7 @@ public class PokerSimulator {
 
         int pairCount = 0;
         SimEngine engine = new SimEngine(new int[]{t1, t2}, false, isProtectedMode, nightmareIntensity);
-        engine.setPerHandNeuralResetEnabled(isProtectedMode && isNeuralProtectedMode);
+        engine.setPerHandNeuralResetEnabled(false);
         PokerBot botA = engine.bots.get(0);
         
         System.out.println("Executing " + pairs + " duplicate pairs...");
@@ -465,7 +465,7 @@ public class PokerSimulator {
             PokerBot.resetThreadCognitiveDB();
             try {
                 SimEngine engine = new SimEngine(dumbCount, smartCount, godCount, false, isProtectedMode, nightmareIntensity, false);
-                engine.setPerHandNeuralResetEnabled(isProtectedMode && isNeuralProtectedMode);
+                engine.setPerHandNeuralResetEnabled(false);
                 engine.runIndividualContinuous(n, false);
                 SimulationTotals totals = new SimulationTotals();
                 totals.absorbEngine(engine, null);
@@ -489,7 +489,7 @@ public class PokerSimulator {
                 PokerBot.resetThreadCognitiveDB();
                 try {
                     SimEngine engine = new SimEngine(dumbCount, smartCount, godCount, false, isProtectedMode, nightmareIntensity, false);
-                    engine.setPerHandNeuralResetEnabled(isProtectedMode && isNeuralProtectedMode);
+                    engine.setPerHandNeuralResetEnabled(false);
                     engine.runIndividualContinuous(handsForWorker, false);
                     local.absorbEngine(engine, null);
                 } finally {
