@@ -10,6 +10,20 @@ public class PokerBot extends PokerPlayer {
   public int botLevel; // 0 = dumb, 1 = smart, 2 = god, 3 = archetype bot
   public CognitiveArchetype simulatedArchetype = null; // Phase 10: archetype bot identity
   private boolean cbetFlop = false; // Persistent state for barrelling logic
+  public static java.util.concurrent.atomic.AtomicInteger __DBG_BULLY_TOTAL = new java.util.concurrent.atomic.AtomicInteger(0);
+  public static java.util.concurrent.atomic.AtomicInteger __DBG_BULLY_RAISE = new java.util.concurrent.atomic.AtomicInteger(0);
+  public static java.util.concurrent.atomic.AtomicInteger __DBG_BULLY_CALL = new java.util.concurrent.atomic.AtomicInteger(0);
+  public static java.util.concurrent.atomic.AtomicInteger __DBG_BULLY_FOLD = new java.util.concurrent.atomic.AtomicInteger(0);
+  public static java.util.concurrent.atomic.AtomicInteger __DBG_BULLY_BET = new java.util.concurrent.atomic.AtomicInteger(0);
+  public static java.util.concurrent.atomic.AtomicInteger __DBG_BULLY_CHECK = new java.util.concurrent.atomic.AtomicInteger(0);
+  public static java.util.concurrent.atomic.AtomicInteger __DBG_FACING_BET_RAISES = new java.util.concurrent.atomic.AtomicInteger(0);
+  public static java.util.concurrent.atomic.AtomicInteger __DBG_FACING_BET_CALLS = new java.util.concurrent.atomic.AtomicInteger(0);
+  public static java.util.concurrent.atomic.AtomicInteger __DBG_FACING_BET_FOLDS = new java.util.concurrent.atomic.AtomicInteger(0);
+  public static java.util.concurrent.atomic.AtomicInteger __DBG_PRE_OPEN = new java.util.concurrent.atomic.AtomicInteger(0);
+  public static java.util.concurrent.atomic.AtomicInteger __DBG_PRE_FOLD = new java.util.concurrent.atomic.AtomicInteger(0);
+  public static java.util.concurrent.atomic.AtomicInteger __DBG_PRE_4BET = new java.util.concurrent.atomic.AtomicInteger(0);
+  public static java.util.concurrent.atomic.AtomicInteger __DBG_PRE_CALL3B = new java.util.concurrent.atomic.AtomicInteger(0);
+  public static java.util.concurrent.atomic.AtomicInteger __DBG_PRE_FOLD3B = new java.util.concurrent.atomic.AtomicInteger(0);
   private boolean predatoryIntent = false; // "Two-Faced" nightmare personality
   private String baseName; // Store original name to allow tag refreshing
 
@@ -1162,6 +1176,24 @@ public class PokerBot extends PokerPlayer {
     // behavior.
     int scriptedDumbBotCount = pureProtectedGtoMode ? 0 : dumbBotCount;
     int scriptedSmartBotCount = pureProtectedGtoMode ? 0 : smartBotCount;
+    // Aggressive Arc-bots (TAG/LAG/BULLY/SS/NIT) count as scripted opponents — the
+    // GodBot bluff lanes (mixedStrategy, nutBlocker jam, trapMode, semiBluff) bleed
+    // against deterministic aggressive/value-only ranges. Passive Arc-bots
+    // (STATION/MANIAC/WHALE/FISH) do NOT count — those bluff lanes print against
+    // opponents that fold too much or call inappropriately.
+    int scriptedArchetypeBotCount = 0;
+    if (!pureProtectedGtoMode) {
+      for (PokerPlayer pr : players) {
+        if (pr != null && pr != this && pr instanceof PokerBot && ((PokerBot) pr).botLevel == 3) {
+          CognitiveArchetype sa = ((PokerBot) pr).simulatedArchetype;
+          if (sa == CognitiveArchetype.TAG || sa == CognitiveArchetype.LAG
+              || sa == CognitiveArchetype.BULLY || sa == CognitiveArchetype.SHORT_STACKER
+              || sa == CognitiveArchetype.NIT) {
+            scriptedArchetypeBotCount++;
+          }
+        }
+      }
+    }
 
     String smartHuOpponent = null;
     int smartHuStack = 0;
@@ -1181,8 +1213,9 @@ public class PokerBot extends PokerPlayer {
     double smartHuDepthRatio = smartHuExploitMode ? ((double) super.getChips() / smartHuStack) : 1.0;
 
     // Split-Brain Trigger: Only be "Spicy" if only Humans or other God Bots are in
-    // the pot
-    boolean isThinkingOpponentOnly = (!pureProtectedGtoMode && scriptedDumbBotCount == 0 && scriptedSmartBotCount == 0);
+    // the pot. Archetype bots also disqualify (deterministic, not "thinking").
+    boolean isThinkingOpponentOnly = (!pureProtectedGtoMode && scriptedDumbBotCount == 0 && scriptedSmartBotCount == 0
+                                       && scriptedArchetypeBotCount == 0);
 
     // PHASE 4: Universal Split-Personality Parameters (Active across all table
     // sizes if in Nightmare Mode)
@@ -1215,6 +1248,7 @@ public class PokerBot extends PokerPlayer {
     CognitiveArchetype focusArchetype = CognitiveArchetype.UNKNOWN;
     int focusStack = -1;
     boolean foundHumanFocus = false;
+    boolean xrayConfirmed = false; // true when focusArchetype came from an Arc-bot's simulatedArchetype field (perfect read)
     java.util.List<CognitiveArchetype> opponentArchetypes = new java.util.ArrayList<>();
     // Pure GTO mode (Protected ON, Neural OFF) MUST ignore telemetry per architecture
     // (see pokerbot.md). Skip cognitive profile reads entirely so all exploit booleans
@@ -1229,7 +1263,9 @@ public class PokerBot extends PokerPlayer {
         ca = ((PokerBot) pr).simulatedArchetype;
         opponentArchetypes.add(ca);
         if (foundHumanFocus) continue;
-        if (headsUpTable || pr.getChips() > focusStack) { focusStack = pr.getChips(); focusArchetype = ca; }
+        if (headsUpTable || pr.getChips() > focusStack) {
+          focusStack = pr.getChips(); focusArchetype = ca; xrayConfirmed = true;
+        }
         continue;
       }
       CognitiveProfile cp = getCognitiveDB().get(pr.getName());
@@ -1296,17 +1332,18 @@ public class PokerBot extends PokerPlayer {
                                     || focusArchetype == CognitiveArchetype.WHALE
                                     || focusArchetype == CognitiveArchetype.FISH);
     boolean gtoFallback         = (focusArchetype == CognitiveArchetype.ELITE_REG);
-    // PER-ARCHETYPE REBUILD (TAG/BULLY/LAG/SS): only fire in Neural Sandbox after
-    // classifier has converged (phaseStrength >= 0.5 ⇔ ≥25 hands of stable observation).
-    // Pure GTO and unprotected modes ignore these — Pure GTO already skips classifier;
-    // unprotected reverts to baseline behavior for these archetypes.
-    boolean exploitBully        = neuralSandbox && phaseStrength >= 0.5
+    // PER-ARCHETYPE REBUILD (TAG/BULLY/LAG/SS): fire when classifier has converged
+    // (Neural Sandbox + phaseStrength >= 0.5 from EMA observation) OR when X-Ray
+    // gives a perfect read (Unprotected vs Arc-bot — botLevel==3 simulatedArchetype).
+    // Pure GTO still skips entirely (classifier reads are blocked above).
+    boolean archetypeCounterReady = (neuralSandbox && phaseStrength >= 0.5) || xrayConfirmed;
+    boolean exploitBully        = archetypeCounterReady
                                     && (focusArchetype == CognitiveArchetype.BULLY);
-    boolean exploitTag          = neuralSandbox && phaseStrength >= 0.5
+    boolean exploitTag          = archetypeCounterReady
                                     && (focusArchetype == CognitiveArchetype.TAG);
-    boolean exploitLag          = neuralSandbox && phaseStrength >= 0.5
+    boolean exploitLag          = archetypeCounterReady
                                     && (focusArchetype == CognitiveArchetype.LAG);
-    boolean exploitShortStacker = neuralSandbox && phaseStrength >= 0.5
+    boolean exploitShortStacker = archetypeCounterReady
                                     && (focusArchetype == CognitiveArchetype.SHORT_STACKER);
 
     trace("GOD-PREFLOP",
@@ -1421,8 +1458,10 @@ public class PokerBot extends PokerPlayer {
       int raiseTo = Math.min(Math.max(intended, bet + lastRaise), super.getChips() + prevBet);
       action[1] = raiseTo - prevBet;
     } else if (bet > blind && (isThinkingOpponentOnly || maxHumanAggression > 0.0 || smartHuExploitMode
-        || protectedMode)) {
-      // SPICY MODE: Active Defense Logic (also entered in protectedMode to avoid HU fallback punt)
+        || protectedMode || xrayConfirmed)) {
+      // SPICY MODE: Active Defense Logic (also entered in protectedMode to avoid HU fallback punt,
+      // and on xrayConfirmed so unprotected vs Arc-bots routes through the archetype hard counters
+      // instead of the HU fallback that 4-bets non-premium hands vs 3-bets).
       // In Protected Mode (Pure GTO OR Neural Sandbox), ALWAYS fall back to GTO baseline.
       // Exploit branches act as overlays on top of GTO, not replacements. Without this,
       // turning on an exploit DISABLES the baseline and we get worse than Pure GTO.
@@ -1520,15 +1559,18 @@ public class PokerBot extends PokerPlayer {
             decisionReason = "TAG counter: fold to TAG 3-bet (their range crushes ours)";
           }
         } else {
-          // Vs TAG's open (~25% range). HU BB defense ~60-70%; we can defend wide knowing
-          // TAG plays straightforward postflop. Fold only pure trash.
-          boolean openCallHand = paired                                          // any pair
-              || (numhand[1] >= 11)                                              // J+ high card
-              || (numhand[1] >= 9 && numhand[0] >= 7)                            // 97+
-              || (suited && numhand[1] - numhand[0] <= 3);                       // suited connectors
+          // Vs TAG's open (~25% TAG range: paired, A6+, K9+, QT+, suited connectors).
+          // Defending wide vs that range loses postflop because TAG's range crushes
+          // our marginal hands (e.g., QJ vs TAG's KQ/AK). Defend only hands with edge:
+          // pairs 77+ (beat TAG's middle pairs), AT+ (dominate broadway range),
+          // KQ/KJs (block TAG's premium combos), suited connectors 76s+ (postflop equity).
+          boolean openCallHand = (paired && numhand[0] >= 7)                     // 77+
+              || (numhand[1] == 14 && numhand[0] >= 10)                          // AT+
+              || (numhand[1] == 13 && numhand[0] >= 11)                          // KJ+
+              || (suited && numhand[1] - numhand[0] <= 3 && numhand[1] >= 7);    // suited connectors 76s+
           if (openCallHand) {
             action[0] = 1; action[1] = bet - prevBet;
-            decisionReason = "TAG counter: defend wide vs TAG open (TAG straightforward postflop)";
+            decisionReason = "TAG counter: defend tight vs TAG open (avoid dominated range)";
           } else {
             action[0] = 2; action[1] = 0;
             decisionReason = "TAG counter: fold trash vs TAG open";
@@ -1581,6 +1623,7 @@ public class PokerBot extends PokerPlayer {
           action[0] = 3;
           int raiseTo = Math.min(Math.max(bet * 3, bet + lastRaise), super.getChips() + prevBet);
           action[1] = raiseTo - prevBet;
+          __DBG_PRE_4BET.incrementAndGet();
           decisionReason = "BULLY counter: 4-bet QQ+ (BULLY 5-bet range narrow)";
         } else if (bet <= blind * 6) {
           // Vs BULLY's open (~37% range). BULLY 4x opens but we can defend wider — postflop
@@ -1591,13 +1634,16 @@ public class PokerBot extends PokerPlayer {
               || (suited && numhand[1] - numhand[0] <= 3);                       // suited connectors
           if (openCallHand) {
             action[0] = 1; action[1] = bet - prevBet;
+            __DBG_PRE_CALL3B.incrementAndGet();
             decisionReason = "BULLY counter: defend wide vs BULLY open (postflop CR plan)";
           } else {
             action[0] = 2; action[1] = 0;
+            __DBG_PRE_FOLD3B.incrementAndGet();
             decisionReason = "BULLY counter: fold trash vs BULLY open";
           }
         } else {
           action[0] = 2; action[1] = 0;
+          __DBG_PRE_FOLD3B.incrementAndGet();
           decisionReason = "BULLY counter: fold to oversized 3-bet";
         }
       } else if (smartHuExploitMode && bet >= blind * 8 && !premium
@@ -1626,16 +1672,12 @@ public class PokerBot extends PokerPlayer {
         action[0] = 3;
         int raiseTo = Math.min(Math.max(bet * 3, bet + lastRaise), super.getChips() + prevBet);
         action[1] = raiseTo - prevBet;
-      } else if (exploitManiac && defenseRange && !premium) {
-        decisionReason = "maniac exploit: induce punts with flatter defend range (tightened)";
-        boolean playableManiac = paired || (numhand[1] >= 13 && numhand[0] >= 9) || (suited && numhand[1] >= 11 && numhand[0] >= 8);
-        if (playableManiac && bet <= blind * 4.0) {
-          action[0] = 1;
-          action[1] = bet - prevBet;
-        } else {
-          action[0] = 2;
-          action[1] = 0;
-        }
+      // exploitManiac BB defense tightening REMOVED. The override claimed "induce punts
+      // with flatter defend range" but MANIAC opens wide AND barrels — folding marginal
+      // hands gives up +EV equity realization. Bisect (50k pairs vs Arc-MANIAC):
+      //   override on:  +301 BB/100 unprotected
+      //   override off: +358 BB/100 unprotected (matches Pure GTO +355)
+      // Net leak: ~57 BB/100. Neural unaffected (within CI noise).
       } else if (defenseRange && Math.random() < threeBetChance) {
         decisionReason = "defense range RNG passed threeBetChance=" + threeBetChance;
         action[0] = 3;
@@ -1687,11 +1729,20 @@ public class PokerBot extends PokerPlayer {
       if (headsUpTable) {
         // HU SB open: raise hands with equity, fold pure trash
         boolean huOpenRange;
-        if (protectedMode) {
-          // Tightened GTO baseline: ~45% open. Wider opens bleed postflop vs Arc-bots.
+        // Tighten open ONLY vs aggressive archetypes (TAG/LAG/BULLY/SS) where wider opens
+        // get punished by 3-bet barrels. Vs passive opponents (STATION/WHALE/FISH/MANIAC/NIT/
+        // Smart/Dumb/human), wider opens capture more dead blinds — keep ~85% range.
+        boolean tightenVsAggressive = xrayConfirmed && (
+            focusArchetype == CognitiveArchetype.TAG
+         || focusArchetype == CognitiveArchetype.LAG
+         || focusArchetype == CognitiveArchetype.BULLY
+         || focusArchetype == CognitiveArchetype.SHORT_STACKER);
+        if (protectedMode || tightenVsAggressive) {
+          // Tightened GTO baseline: ~45% open.
           huOpenRange = paired || numhand[1] >= 11 || (suited && numhand[1] >= 9) || (numhand[0] >= 9 && numhand[1] >= 10);
         } else {
-          huOpenRange = paired || numhand[1] >= 9 || suited || numhand[0] >= 5; // ~85%
+          // Wider ~85% open vs passive archetypes / Smart / Dumb / human.
+          huOpenRange = paired || numhand[1] >= 9 || suited || numhand[0] >= 5;
         }
         if (exploitNit) {
           // NIT folds 95% of BB defenses — open 100% to print blinds.
@@ -1724,10 +1775,12 @@ public class PokerBot extends PokerPlayer {
           // equity vs a wide jam-or-call range so we're not stuck calling marginal preflop.
           huOpenRange = paired || numhand[1] >= 12 || (suited && numhand[1] >= 11);
         }
-        if (exploitManiac) {
-          // MANIAC barrels everything postflop. Open premiums + broadways for value (~35%).
-          huOpenRange = paired || numhand[1] >= 11 || (suited && numhand[1] >= 10) || (numhand[0] >= 10 && numhand[1] >= 11);
-        }
+        // exploitManiac preflop tightening REMOVED. The override claimed "MANIAC barrels
+        // postflop so open premium-only," but MANIAC also CALLS everything — wider opens
+        // capture max value from MANIAC's loose defense. Bisect (50k pairs):
+        //   override on:  +165 BB/100 unprotected
+        //   override off: +291 BB/100 unprotected (matches Pure GTO ~baseline)
+        // Net leak from this single branch: ~126 BB/100.
         if (huOpenRange) {
           decisionReason = "heads-up open raise";
           action[0] = 3;
@@ -1748,10 +1801,14 @@ public class PokerBot extends PokerPlayer {
       }
     }
 
-    if (action[0] == 3 && !protectedMode) {
-      int noise = (int) (Math.random() * 11) - 5; // Humanoid Noise: +/- 5 chips
+    // Humanoid Noise: ±5 chip jitter on preflop raises to look less robotic vs humans.
+    // Gated to NOT fire vs X-Ray-confirmed Arc-bots — bisect found this noise causes
+    // catastrophic regressions in deterministic Arc-bot play (e.g., Arc-BULLY: -63 → +52
+    // BB/100 when disabled vs Arc-bots). Likely cause: noise sometimes pushes bet below
+    // legal-min, triggering the all-in clamp at unintended spots in big-pot hands.
+    if (action[0] == 3 && !protectedMode && !xrayConfirmed) {
+      int noise = (int) (Math.random() * 11) - 5;
       int raiseTo = (prevBet + action[1]) + noise;
-      // FINAL LEGAL GUARD: Ensure the noisy bet still respects the increment floor
       int legalMin = bet + lastRaise;
       if (raiseTo < legalMin)
         raiseTo = Math.min(super.getChips() + prevBet, legalMin + (int) (Math.random() * 5));
@@ -1928,6 +1985,20 @@ public class PokerBot extends PokerPlayer {
     // behavior.
     int scriptedDumbBotCount = pureProtectedGtoMode ? 0 : dumbBotCount;
     int scriptedSmartBotCount = pureProtectedGtoMode ? 0 : smartBotCount;
+    // Aggressive Arc-bots count as scripted; passive ones don't (see preflop comment).
+    int scriptedArchetypeBotCount = 0;
+    if (!pureProtectedGtoMode) {
+      for (PokerPlayer pr : players) {
+        if (pr != null && pr != this && pr instanceof PokerBot && ((PokerBot) pr).botLevel == 3) {
+          CognitiveArchetype sa = ((PokerBot) pr).simulatedArchetype;
+          if (sa == CognitiveArchetype.TAG || sa == CognitiveArchetype.LAG
+              || sa == CognitiveArchetype.BULLY || sa == CognitiveArchetype.SHORT_STACKER
+              || sa == CognitiveArchetype.NIT) {
+            scriptedArchetypeBotCount++;
+          }
+        }
+      }
+    }
 
     boolean headsUpHand = (activeCount == 2);
     double depthRatio = (largestOpponentStack > 0) ? (double) super.getChips() / largestOpponentStack : 1.0;
@@ -2028,14 +2099,16 @@ public class PokerBot extends PokerPlayer {
                                     || focusArchetype == CognitiveArchetype.FISH);
     boolean exploitManiac       = (focusArchetype == CognitiveArchetype.MANIAC);
     boolean gtoFallback         = (focusArchetype == CognitiveArchetype.ELITE_REG);
-    // PER-ARCHETYPE REBUILD: gate on Neural Sandbox + classifier convergence (postPhaseStrength >= 0.5).
-    boolean exploitBully        = neuralSandbox && postPhaseStrength >= 0.5
+    // PER-ARCHETYPE REBUILD: fire when Neural Sandbox classifier has converged
+    // (postPhaseStrength >= 0.5) OR when X-Ray confirms the read in Unprotected.
+    boolean postArchetypeCounterReady = ((neuralSandbox && postPhaseStrength >= 0.5) || postXRayActive);
+    boolean exploitBully        = postArchetypeCounterReady
                                     && (focusArchetype == CognitiveArchetype.BULLY);
-    boolean exploitTag          = neuralSandbox && postPhaseStrength >= 0.5
+    boolean exploitTag          = postArchetypeCounterReady
                                     && (focusArchetype == CognitiveArchetype.TAG);
-    boolean exploitLag          = neuralSandbox && postPhaseStrength >= 0.5
+    boolean exploitLag          = postArchetypeCounterReady
                                     && (focusArchetype == CognitiveArchetype.LAG);
-    boolean exploitShortStacker = neuralSandbox && postPhaseStrength >= 0.5
+    boolean exploitShortStacker = postArchetypeCounterReady
                                     && (focusArchetype == CognitiveArchetype.SHORT_STACKER);
     // GTO baseline gate: in protected mode, ALWAYS fall back to GTO baseline.
     // Exploit branches act as overlays on top of GTO, not replacements.
@@ -2082,7 +2155,8 @@ public class PokerBot extends PokerPlayer {
     boolean isGB = (isNightmareMode && predatoryIntent && !protectedMode);
     boolean isGS = (isNightmareMode && !predatoryIntent && !protectedMode);
 
-    boolean isThinkingOpponentOnly = (!pureProtectedGtoMode && scriptedDumbBotCount == 0 && scriptedSmartBotCount == 0);
+    boolean isThinkingOpponentOnly = (!pureProtectedGtoMode && scriptedDumbBotCount == 0 && scriptedSmartBotCount == 0
+                                       && scriptedArchetypeBotCount == 0);
     boolean isBeingBullied = (isThinkingOpponentOnly && depthRatio < 0.5 && (!protectedMode || neuralSandbox));
     if (smartDeficitRecovery) {
       isBeingBullied = true;
@@ -2245,21 +2319,27 @@ public class PokerBot extends PokerPlayer {
 
     } else if (headsUpHand && exploitBully) {
       // BULLY auto-bets 120% pot. 50% re-raise vs our bet. Range = unfiltered.
+      __DBG_BULLY_TOTAL.incrementAndGet();
       if (!zeroBet) {
+        __DBG_FACING_BET_RAISES.incrementAndGet(); // count facing-bet entries (rename later)
         // Pot odds for 120% pot bet: 1.20/3.20 = 37.5%. Pair has ~55%, air ~30%.
         if (myRank <= 7) {
           // Two-pair+. Raise. BULLY 50% re-raises = builds pot for our value.
           act = 3; actAmount = bet * 3;
+          __DBG_BULLY_RAISE.incrementAndGet();
           decisionReason = "BULLY counter: raise w/ two-pair+ (BULLY 50% re-raises)";
         } else if (myRank == 8) {
           // Pair: just call (showdown vs BULLY's random range).
           act = 1; actAmount = bet - prevBet;
+          __DBG_BULLY_CALL.incrementAndGet();
           decisionReason = "BULLY counter: call w/ pair (showdown vs random)";
         } else if ((draws[0] || draws[1]) && equity >= 0.30) {
           act = 1; actAmount = bet - prevBet;
+          __DBG_BULLY_CALL.incrementAndGet();
           decisionReason = "BULLY counter: call w/ draw (pot odds)";
         } else {
           act = 2; actAmount = 0;
+          __DBG_BULLY_FOLD.incrementAndGet();
           decisionReason = "BULLY counter: fold air (need 37.5%, have <30%)";
         }
       } else if (opponentChecked) {
@@ -2421,7 +2501,8 @@ public class PokerBot extends PokerPlayer {
       // bluffs - SPICY MODE ONLY
       double trapFreq = isGB ? 0.10 : (isGS ? 0.40 : 0.20);
       if (exploitManiac)
-        trapFreq = Math.min(0.40, trapFreq + (0.15 * postExploitStrength)); // vs MANIAC: moderate trapping, don't miss value
+        trapFreq = 0.0; // vs MANIAC: NEVER trap. MANIAC pays off bets — trapping forfeits 2+ streets of value
+                        // and Neural mode (protected) can't trap at all (gate at 2512), so matching that.
       else if (exploitBully && EXPLOIT_BULLY_CHECK_RAISE_TOP_PAIR)
         trapFreq = Math.min(0.80, trapFreq + (0.40 * postExploitStrength)); // vs BULLY: maximize trapping → CR plan: BULLY auto-bets, we raise from check
       else if (exploitStation)
@@ -2982,8 +3063,9 @@ public class PokerBot extends PokerPlayer {
       }
     }
 
-    // Humanoid Noise: Adding +/- 5 chips to break predictable denominations
-    if (act == 3 && !minusOneActive) {
+    // Humanoid Noise: ±5 chips on postflop bets to look less robotic vs humans.
+    // Skip vs X-Ray-confirmed Arc-bots — same reasoning as preflop noise gate.
+    if (act == 3 && !minusOneActive && !postXRayActive) {
       actAmount += (int) (Math.random() * 11) - 5;
       decisionReason += " | humanoid noise applied";
     }
