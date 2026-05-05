@@ -877,9 +877,20 @@ public class PokerSimulator {
                 engine.bots.set(1, tempBot);
             }
 
-            for (PokerBot b : engine.bots) {
+            // Stack assignment: SHORT_STACKER bots start with 499 chips (24.95 BB) — the
+            // maximum that still falls under the classifier's currentStackBB < 25.0 threshold.
+            // Without this, SS bots would have 100 BB stacks and their "always shove" strategy
+            // would be wildly −EV for them; the duel becomes meaningless. Per-pair starting
+            // chips are also recorded so the chip-delta accounting matches each bot's stack.
+            int[] startingChips = new int[engine.bots.size()];
+            for (int i = 0; i < engine.bots.size(); i++) {
+                PokerBot b = engine.bots.get(i);
+                int starting = (b.simulatedArchetype == PokerBot.CognitiveArchetype.SHORT_STACKER)
+                    ? 499
+                    : 2000;
                 b.removeChips(b.getChips());
-                b.addChips(2000);
+                b.addChips(starting);
+                startingChips[i] = starting;
             }
 
             PokerDeck tempDeck = new PokerDeck();
@@ -889,8 +900,8 @@ public class PokerSimulator {
             // Pass 1: Bot A at 0, Bot B at 1
             engine.setDiagnosticsContextLabels("MODE6", "PASS_A", -1);
             int winner1 = engine.runHand(1, false, false, holeCards, board);
-            int p1A = engine.bots.get(0).getChips() - 2000;
-            int p1B = engine.bots.get(1).getChips() - 2000;
+            int p1A = engine.bots.get(0).getChips() - startingChips[0];
+            int p1B = engine.bots.get(1).getChips() - startingChips[1];
             t1TotalGold += p1A;
             t2TotalGold += p1B;
             t1ProfitSquares += (double) p1A * p1A;
@@ -914,9 +925,16 @@ public class PokerSimulator {
             engine.bots.set(0, engine.bots.get(1));
             engine.bots.set(1, tempBot);
 
-            for (PokerBot b : engine.bots) {
+            // Pass 2 stack reset — same SS-aware logic as pass 1.
+            int[] startingChipsPass2 = new int[engine.bots.size()];
+            for (int i = 0; i < engine.bots.size(); i++) {
+                PokerBot b = engine.bots.get(i);
+                int starting = (b.simulatedArchetype == PokerBot.CognitiveArchetype.SHORT_STACKER)
+                    ? 499
+                    : 2000;
                 b.removeChips(b.getChips());
-                b.addChips(2000);
+                b.addChips(starting);
+                startingChipsPass2[i] = starting;
             }
             // Use the original dealt holes with swapped bot order so identities swap
             // private cards,
@@ -927,8 +945,8 @@ public class PokerSimulator {
 
             // Note: In Pass 2, engine.bots.get(0) is now Bot B, and bots.get(1) is now Bot
             // A
-            int p2B = engine.bots.get(0).getChips() - 2000;
-            int p2A = engine.bots.get(1).getChips() - 2000;
+            int p2B = engine.bots.get(0).getChips() - startingChipsPass2[0];
+            int p2A = engine.bots.get(1).getChips() - startingChipsPass2[1];
             t2TotalGold += p2B;
             t1TotalGold += p2A;
             t2ProfitSquares += (double) p2B * p2B;
@@ -1449,7 +1467,13 @@ public class PokerSimulator {
     private static void resetAllStacksTo20bb(SimEngine engine) {
         for (PokerBot bot : engine.bots) {
             bot.removeChips(bot.getChips());
-            bot.addChips(2000);
+            // SHORT_STACKER bots get 499 chips (24.95 BB) so they stay under the
+            // currentStackBB < 25.0 classifier threshold and their push-fold strategy is
+            // appropriate; all others get 2000 (100 BB).
+            int starting = (bot.simulatedArchetype == PokerBot.CognitiveArchetype.SHORT_STACKER)
+                ? 499
+                : 2000;
+            bot.addChips(starting);
         }
     }
 
@@ -1656,6 +1680,23 @@ public class PokerSimulator {
                         p.afqTurnEMA,
                         p.afqRiverEMA,
                         p.wtsdEMA);
+                // Per-street EV breakdown — segments BB/100 by where the hand ended.
+                long totalHands = 0;
+                for (long n : p.handsEndedAtStreet) totalHands += n;
+                if (totalHands > 0) {
+                    String[] streetNames = {"preflop", "flop", "turn", "river"};
+                    StringBuilder sb = new StringBuilder("    Per-street EV:");
+                    for (int s = 0; s < 4; s++) {
+                        double pct = 100.0 * p.handsEndedAtStreet[s] / totalHands;
+                        double avgChips = p.handsEndedAtStreet[s] > 0
+                            ? (double) p.netChipsAtStreet[s] / p.handsEndedAtStreet[s]
+                            : 0.0;
+                        sb.append(String.format(" %s=%d(%.1f%%, avg=%+.1f)",
+                            streetNames[s], p.handsEndedAtStreet[s], pct, avgChips));
+                    }
+                    sb.append("\n");
+                    emitLine(telemetryOutput, sb.toString().trim());
+                }
             }
         }
     }
@@ -2498,7 +2539,15 @@ public class PokerSimulator {
             b.setProtectedMode(false); // Archetype bots are always unprotected
             b.refreshNameTag(unlocker);
             b.removeChips(b.getChips());
-            b.addChips(2000);
+            // SHORT_STACKER bots get 499 chips (24.95 BB), the maximum that still falls
+            // under the currentStackBB < 25.0 classifier threshold. Their "always shove"
+            // strategy is only sound at short stacks; full-stack SS plays a wildly −EV
+            // strategy that defeats the archetype's purpose. All other archetypes get
+            // 2000 chips (100 BB) — standard cash-game depth.
+            int starting = (archetype == PokerBot.CognitiveArchetype.SHORT_STACKER)
+                ? 499
+                : 2000;
+            b.addChips(starting);
             bots.add(b);
         }
 
@@ -3225,7 +3274,14 @@ public class PokerSimulator {
                 int[] allInLockContributions = null;
                 boolean[] allInLockFolded = null;
 
+                // Per-street EV instrumentation — track last street where betting had
+                // ≥2 active players. Updated AFTER the early-break check so it reflects
+                // the street where decisions actually occurred.
+                int endedAtStreet = 0;
+                int streetIdx = -1;
+
                 for (String street : streetNames) {
+                    streetIdx++;
                     BotDiagnostics.updateSimulatorStreet(street.toUpperCase());
                     if (!street.equals("preflop")) {
                         if (street.equals("flop")) {
@@ -3266,6 +3322,7 @@ public class PokerSimulator {
                     }
                     if (countActive(folded) <= 1)
                         break;
+                    endedAtStreet = streetIdx; // street where betting actually started with ≥2 active
 
                     if (handInteractive) {
                         System.out.println("\n--- " + street.toUpperCase() + " ---");
@@ -3574,6 +3631,15 @@ public class PokerSimulator {
                     handProfitsBySeat[i] = profit;
                     int lvl = bots.get(i).getBotLevel();
                     handProfits[lvl] += profit;
+                }
+
+                // Per-street EV instrumentation: record where this hand ended + each bot's net delta.
+                for (int i = 0; i < numPlayers; i++) {
+                    PokerBot pb = bots.get(i);
+                    if (shouldTrackCognitiveBot(pb)) {
+                        PokerBot.CognitiveProfile profile = PokerBot.getOrCreateCognitiveProfile(pb.getName());
+                        profile.recordHandEnd(endedAtStreet, handProfitsBySeat[i]);
+                    }
                 }
 
                 validateTransferMatrixAgainstHandProfits(handTransfers, handProfitsBySeat);
