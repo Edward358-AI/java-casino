@@ -4,6 +4,7 @@
 /lib/
 /src/test/
 *.class
+dbg_count.txt
 
 Chunk123TelemetryVerification.java
 Chunk4QuickCheck.java
