@@ -1000,8 +1000,12 @@ public class PokerSimulator {
         double t2Bb100 = (t2MeanProfit / 20.0) * 100.0;
         double t1CiBb100 = (t1Ci / 20.0) * 100.0;
         double t2CiBb100 = (t2Ci / 20.0) * 100.0;
-        double t1StdevBb100 = (t1Stdev / 20.0) * 100.0;
-        double t2StdevBb100 = (t2Stdev / 20.0) * 100.0;
+        // Conventional "StDev BB/100" = SD of a 100-hand BB/100 sample.
+        // Per-hand profit SD = σ chips. Sum of 100 hands has SD = σ√100 = 10σ.
+        // BB/100 of that 100-hand block = (sum / 20) / 100 × 100 = sum / 20.
+        // So SD of 100-hand BB/100 = 10σ / 20 = σ / 2.
+        double t1StdevBb100 = t1Stdev / 2.0;
+        double t2StdevBb100 = t2Stdev / 2.0;
         emitLine(mode6TelemetryOutput, "\n--- DUPLICATE DUEL ADVANCED TELEMETRY ---");
         emitFormat(mode6TelemetryOutput, "Bot A [%s] BB/100 -> %.2f (95%% CI: %.2f to %.2f)\n", name1, t1Bb100,
                 t1Bb100 - t1CiBb100, t1Bb100 + t1CiBb100);
