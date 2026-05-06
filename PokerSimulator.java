@@ -111,7 +111,6 @@ public class PokerSimulator {
                 arcBullyCount = Player.getValidInt("  BULLY bots: ", 0, 12);
                 arcLagCount = Player.getValidInt("  LAG bots: ", 0, 12);
                 arcShortStackerCount = Player.getValidInt("  SHORT_STACKER bots: ", 0, 12);
-                arcEliteRegCount = Player.getValidInt("  ELITE_REG bots: ", 0, 12);
             } else if (choice == 5) {
                 ltmAlpha = Player.getValidDouble("LTM Alpha value (0.001 - 0.5): ", 0.001, 0.5, 0.01);
             } else if (choice == 6) {

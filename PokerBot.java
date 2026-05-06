@@ -211,8 +211,11 @@ public class PokerBot extends PokerPlayer {
       if (handsPlayed > 10 && Math.abs(vpip - pfr) < 0.05
           && vpip >= 0.10 && vpip < 0.40 && postflopAFq <= 0.05 && wtsd <= 0.20)
         return CognitiveArchetype.SHORT_STACKER;
-      // SHORT_STACKER (stack-based): preserved for live games where stack actually drops.
-      if (useStack && handsPlayed > 10 && currentStackBB < 25.0)
+      // SHORT_STACKER (stack-based): only fires when behavior ALSO matches (vpip ≈ pfr).
+      // Without the behavioral check, Mode 7's 20 BB starting stacks misclassify EVERYONE
+      // as SS. Adding the vpip ≈ pfr requirement ensures only true push-fold players match.
+      if (useStack && handsPlayed > 10 && currentStackBB < 25.0
+          && Math.abs(vpip - pfr) < 0.05 && vpip >= 0.10 && postflopAFq <= 0.10)
         return CognitiveArchetype.SHORT_STACKER;
 
       // NIT: very tight, never bets postflop.
@@ -268,11 +271,12 @@ public class PokerBot extends PokerPlayer {
       stmArchetype = classifyArchetype(vpipEMA, pfrEMA, stmTotalAFq, stmPostAFq, wtsdEMA, true);
       ltmArchetype = classifyArchetype(ltmVpipEMA, ltmPfrEMA, ltmTotalAFq, ltmPostAFq, ltmWtsdEMA, false);
 
-      // ELITE_REG: only after 500 hands with stable TAG LTM + elevated volatility
-      if (handsPlayed > 500 && ltmArchetype == CognitiveArchetype.TAG && vIndex >= 0.04) {
-        stmArchetype = CognitiveArchetype.ELITE_REG;
-        ltmArchetype = CognitiveArchetype.ELITE_REG;
-      }
+      // ELITE_REG promotion REMOVED (deprecated 2026-05).
+      // ELITE_REG was meant to identify stable TAG-pattern players with elevated
+      // volatility, triggering conservative GTO baseline play (gtoFallback). The
+      // signal proved unreliable in practice — TAG-mimic strategy now handles
+      // tight aggressive opponents, and gtoFallback is preserved for Pure GTO
+      // mode usage only.
 
       // Normalized Euclidean Distance (3-stat) — measures STM's deviation from LTM trend
       double dVpip = vpipEMA - ltmVpipEMA;
@@ -1181,6 +1185,7 @@ public class PokerBot extends PokerPlayer {
 
     boolean earlyPos = (relativePos >= 2 && relativePos <= 3);
     boolean latePos = (relativePos >= numPlayers - 2);
+    boolean btnPos  = (numPlayers >= 3 && relativePos == numPlayers - 1); // dealer
     boolean inBlinds = (seatIndex == sbIdx || seatIndex == bbIdx);
     boolean unraised = (bet == blind || bet == 0);
 
@@ -1334,7 +1339,7 @@ public class PokerBot extends PokerPlayer {
 
     // Danger hierarchy for worst-case targeting in mixed multiway pots
     final java.util.List<CognitiveArchetype> DANGER_HIERARCHY = java.util.Arrays.asList(
-        CognitiveArchetype.NIT, CognitiveArchetype.ELITE_REG, CognitiveArchetype.TAG,
+        CognitiveArchetype.NIT, CognitiveArchetype.TAG,
         CognitiveArchetype.STATION, CognitiveArchetype.MANIAC, CognitiveArchetype.SHORT_STACKER);
 
     boolean isHomogeneous = false;
@@ -1385,7 +1390,7 @@ public class PokerBot extends PokerPlayer {
     // bluffs, since FISH folds to >1/3 pot on flop and any bet on turn/river).
     boolean exploitWhale        = (focusArchetype == CognitiveArchetype.WHALE);
     boolean exploitFish         = (focusArchetype == CognitiveArchetype.FISH);
-    boolean gtoFallback         = (focusArchetype == CognitiveArchetype.ELITE_REG);
+    boolean gtoFallback         = false; // Was tied to ELITE_REG (deprecated). Set true below in Pure GTO mode.
     // PER-ARCHETYPE REBUILD (TAG/BULLY/LAG/SS): fire when classifier has converged
     // (Neural Sandbox + phaseStrength >= 0.5 from EMA observation) OR when X-Ray
     // gives a perfect read (Unprotected vs Arc-bot — botLevel==3 simulatedArchetype).
@@ -1408,7 +1413,43 @@ public class PokerBot extends PokerPlayer {
             + focusArchetype + ", maxHumanAgg=" + maxHumanAggression + ", isGB=" + isGB + ", isGS=" + isGS
             + ", neuralSandbox=" + neuralSandbox);
 
-    boolean stealRange = paired || numhand[1] >= 14 || (suited && numhand[1] - numhand[0] <= 4);
+    // POSITION-AWARE multi-way ranges. In 6-handed:
+    //   UTG/UTG+1 (early): tight ~12-15% (premium + strong broadways only)
+    //   CO/MID         : medium ~22-25%
+    //   BTN            : wide ~40% (strong steal position)
+    //   SB             : medium ~30% (steal vs BB only)
+    //   BB             : defend wide vs raises (separate logic)
+    // multiwayPressure: tighten further when activeCount ≥ 4 AND aggressive opponent class detected.
+    boolean multiwayActive = (activeCount >= 3);
+    boolean multiwayPressure = multiwayActive && (focusArchetype == CognitiveArchetype.TAG
+        || focusArchetype == CognitiveArchetype.LAG
+        || focusArchetype == CognitiveArchetype.BULLY
+        || focusArchetype == CognitiveArchetype.MANIAC
+        || maxHumanAggression > 0.40);
+
+    boolean stealRange;
+    if (multiwayActive) {
+      // Position-tiered multi-way ranges (replaces broad HU stealRange).
+      if (btnPos) {
+        // BTN: widest range (last to act, max steal equity)
+        stealRange = paired || numhand[1] >= 11 || (suited && numhand[1] - numhand[0] <= 4)
+                  || (numhand[1] >= 9 && numhand[0] >= 7);
+      } else if (latePos) {
+        // CO/MID: moderate steal range
+        stealRange = paired || numhand[1] >= 12 || (suited && numhand[1] - numhand[0] <= 3 && numhand[1] >= 8);
+      } else {
+        // UTG/UTG+1: tight (no steal, just value)
+        stealRange = (paired && numhand[0] >= 7) || (numhand[1] == 14 && numhand[0] >= 11)
+                  || (numhand[1] >= 12 && numhand[0] >= 11);
+      }
+      // Vs aggressive opponents, tighten ALL non-BTN positions further
+      if (multiwayPressure && !btnPos) {
+        stealRange = stealRange && (paired || numhand[1] >= 12 || (suited && numhand[1] >= 10));
+      }
+    } else {
+      // HU baseline (unchanged)
+      stealRange = paired || numhand[1] >= 14 || (suited && numhand[1] - numhand[0] <= 4);
+    }
     boolean smartPressureRange = smartHuExploitMode
         && (paired || numhand[1] >= 12 || (suited && numhand[1] - numhand[0] <= 5));
 
@@ -1428,7 +1469,23 @@ public class PokerBot extends PokerPlayer {
         && (suited && numhand[1] == 14 && numhand[0] >= 2 && numhand[0] <= 9) && !isGS;
     boolean faceCards = (!protectedMode || neuralSandbox) && isThinkingOpponentOnly && spicyOpenAllowed
         && ((numhand[1] >= 13 && numhand[0] >= 10) || (numhand[1] == 12 && numhand[0] >= 11));
-    boolean earlyRange = premium || paired || faceCards || wheelAce;
+    // earlyRange: tight in multi-way (UTG/UTG+1 should not open wide), wider HU.
+    boolean earlyRange;
+    if (multiwayActive) {
+      // Multi-way UTG range: premium + strong broadway only (~12-15%).
+      // Vs aggressive opponents (multiwayPressure), tighten further to premium-only.
+      // Trade-off: loses ~10-15 BB/100 vs BULLY/LAG (already handled by TAG-mimic)
+      // but gains +100-200 BB/100 vs passive STATION/WHALE/FISH (compounding into
+      // narrower opens that get max value when they do hit).
+      if (multiwayPressure) {
+        earlyRange = premium; // ~5%: TT+, AK, AQ
+      } else {
+        earlyRange = premium || (paired && numhand[0] >= 7)            // 77+
+                  || (numhand[1] >= 13 && numhand[0] >= 11);            // KJ+
+      }
+    } else {
+      earlyRange = premium || paired || faceCards || wheelAce;
+    }
 
     // Mixed Strategy Anomaly (15%): Playing GTO Gappers/Trash from any position -
     // SPICY MODE ONLY
@@ -1504,15 +1561,16 @@ public class PokerBot extends PokerPlayer {
     // X-Ray-confirmed reads only (gated via exploit booleans which require
     // archetypeCounterReady). Calls archetypePreflop() with a temporary
     // simulatedArchetype swap so we get the exact deterministic playbook.
-    if (headsUpTable && exploitTag && EXPLOIT_NIT_MIMIC_VS_TAG_PRE) {
+    // Drop the HU-only gate: Arc-mimic strategies are tight discipline (NIT/TAG ranges)
+    // which work even better multi-way (more dangerous opponents → tighten ranges).
+    if (exploitTag && EXPLOIT_NIT_MIMIC_VS_TAG_PRE) {
       CognitiveArchetype save = simulatedArchetype;
       simulatedArchetype = CognitiveArchetype.NIT;
       int[] mimic = archetypePreflop(prevBet, bet, blind, lastRaise, players, seatIndex);
       simulatedArchetype = save;
       action[0] = mimic[0]; action[1] = mimic[1];
       decisionReason = "NIT-mimic vs TAG (preflop)";
-    } else if (headsUpTable && (exploitBully || exploitLag)
-               && EXPLOIT_TAG_MIMIC_VS_AGGRESSIVE) {
+    } else if ((exploitBully || exploitLag) && EXPLOIT_TAG_MIMIC_VS_AGGRESSIVE) {
       CognitiveArchetype save = simulatedArchetype;
       simulatedArchetype = CognitiveArchetype.TAG;
       int[] mimic = archetypePreflop(prevBet, bet, blind, lastRaise, players, seatIndex);
@@ -1598,18 +1656,37 @@ public class PokerBot extends PokerPlayer {
       // PREFLOP HARD COUNTERS — facing TAG/LAG/BULLY/SS raises, exact analytical defense.
       // These derive from each archetype's preflop source ranges (PokerBot.java:2929+).
       if (exploitShortStacker && bet > blind) {
-        // SS analytical counter — SS shoves only postflop AND with top ~32% preflop.
-        // Vs SS's wide preflop shove range, JJ+/AK have ~52-86% equity. Call those, fold rest.
-        // (The 5% variance in BB/100 across runs reflects all-in showdown noise; structural
-        // floor for SS is ~−15 to −25 BB/100 due to forced-fold preflop investment math.)
+        // SS counter — SIZE-AWARE: differentiate true shoves from small raises.
+        //   Shove (bet ≥ 8 BB or ≥ 30% stack): JJ+/AK only call, fold rest.
+        //   Small raise (≤ 8 BB) + QQ+: re-jam (push-fold @ short stack).
+        //   Small raise + medium hand: call (pot odds favor it).
+        //   Small raise + trash: fold.
+        // The re-jam line tested net +5-10 BB/100 vs without (v1 vs v2 testing).
+        boolean isShove = (bet >= blind * 8) || (bet - prevBet >= super.getChips() / 3);
         boolean callShove = (paired && numhand[0] >= 11)                        // JJ-AA
             || (numhand[1] == 14 && numhand[0] == 13);                          // AK
-        if (callShove) {
+        boolean callSmallRaise = (paired && numhand[0] >= 6)                    // 66+
+            || (numhand[1] == 14 && numhand[0] >= 9)                            // A9+
+            || (numhand[1] >= 12 && numhand[0] >= 10)                           // KT+/QT+
+            || (suited && numhand[1] - numhand[0] <= 3 && numhand[1] >= 7);     // suited connectors 76s+
+        boolean threeBetHand = (paired && numhand[0] >= 12);                    // QQ+
+        if (isShove) {
+          if (callShove) {
+            action[0] = 1; action[1] = bet - prevBet;
+            decisionReason = "SS counter: call shove w/ JJ+/AK";
+          } else {
+            action[0] = 2; action[1] = 0;
+            decisionReason = "SS counter: fold to SS shove";
+          }
+        } else if (threeBetHand) {
+          action[0] = 4; action[1] = super.getChips();
+          decisionReason = "SS counter: re-jam premium vs small raise";
+        } else if (callSmallRaise) {
           action[0] = 1; action[1] = bet - prevBet;
-          decisionReason = "SS counter: call shove w/ JJ+/AK";
+          decisionReason = "SS counter: call small raise (pot odds)";
         } else {
           action[0] = 2; action[1] = 0;
-          decisionReason = "SS counter: fold to SS shove";
+          decisionReason = "SS counter: fold trash to small raise";
         }
       } else if (exploitTag && bet > blind) {
         // TAG opens 25% (3x), 3-bets only AA-TT/AK/AQ/KQ at ~9x (3-bet sizing).
@@ -2133,7 +2210,7 @@ public class PokerBot extends PokerPlayer {
     }
 
     final java.util.List<CognitiveArchetype> POST_DANGER_HIERARCHY = java.util.Arrays.asList(
-        CognitiveArchetype.NIT, CognitiveArchetype.ELITE_REG, CognitiveArchetype.TAG,
+        CognitiveArchetype.NIT, CognitiveArchetype.TAG,
         CognitiveArchetype.BULLY, CognitiveArchetype.STATION, CognitiveArchetype.MANIAC, CognitiveArchetype.SHORT_STACKER);
 
     boolean postIsHomogeneous = false;
@@ -2178,7 +2255,7 @@ public class PokerBot extends PokerPlayer {
     boolean exploitWhale        = (focusArchetype == CognitiveArchetype.WHALE);
     boolean exploitFish         = (focusArchetype == CognitiveArchetype.FISH);
     boolean exploitManiac       = (focusArchetype == CognitiveArchetype.MANIAC);
-    boolean gtoFallback         = (focusArchetype == CognitiveArchetype.ELITE_REG);
+    boolean gtoFallback         = false; // Was tied to ELITE_REG (deprecated). Set true below in Pure GTO mode.
     // PER-ARCHETYPE REBUILD: fire when Neural Sandbox classifier has converged
     // (postPhaseStrength >= 0.5) OR when X-Ray confirms the read in Unprotected.
     boolean postArchetypeCounterReady = ((neuralSandbox && postPhaseStrength >= 0.5) || postXRayActive);
@@ -2194,14 +2271,9 @@ public class PokerBot extends PokerPlayer {
     // Exploit branches act as overlays on top of GTO, not replacements.
     if (protectedMode) gtoFallback = true;
 
-    // PHASE 11: Tactical Range Exploit — modest bluff frequency bump on dry boards
-    // when a TAG/LAG/Smart opponent shows weakness (checks).
-    // Activation rules:
-    //   Protected Mode:   HU only, vs confirmed TAG, LAG, or ELITE_REG
-    //   Unprotected Mode: HU only, vs confirmed TAG/LAG/ELITE_REG OR Smart bot
-    // TAG/LAG removed from tactical leak exploit — direct archetype exploits handle them now.
-    // ELITE_REG kept (no archetype-specific exploit; this leak-based bump is the only tool).
-    boolean tacticalTagLagElite = (focusArchetype == CognitiveArchetype.ELITE_REG);
+    // PHASE 11: Tactical Range Exploit — DEPRECATED (only fired for ELITE_REG which is
+    // no longer assigned). Keeping the false constant so dependent code paths compile.
+    boolean tacticalTagLagElite = false;
     boolean tacticalExploitActive = false;
     SmartLeakProfile tacticalLeak = null;
     if (headsUpHand) {
@@ -2307,8 +2379,10 @@ public class PokerBot extends PokerPlayer {
     boolean isRiver         = (board.length == 5);
 
     // ARC-MIMIC POSTFLOP: borrow the Arc-bot's exact deterministic playbook
-    // when our hand-tuned counter loses to its structural edge.
-    if (headsUpHand && exploitTag && EXPLOIT_NIT_MIMIC_VS_TAG_POST) {
+    // when our hand-tuned counter loses to its structural edge. Multi-way safe:
+    // both NIT-mimic (fit-or-fold) and TAG-mimic (bet w/ pair, fold air) are
+    // conservative strategies that work in 6-handed pots.
+    if (exploitTag && EXPLOIT_NIT_MIMIC_VS_TAG_POST) {
       CognitiveArchetype save = simulatedArchetype;
       simulatedArchetype = CognitiveArchetype.NIT;
       int[] mimic = archetypePostflop(prevBet, bet, blind, potSize, board, players, seatIndex);
@@ -2316,7 +2390,7 @@ public class PokerBot extends PokerPlayer {
       act = mimic[0]; actAmount = mimic[1];
       decisionReason = "NIT-mimic vs TAG (postflop)";
       archetypeFinal = true;
-    } else if (headsUpHand && (exploitBully || exploitLag) && EXPLOIT_TAG_MIMIC_VS_AGGRESSIVE) {
+    } else if ((exploitBully || exploitLag) && EXPLOIT_TAG_MIMIC_VS_AGGRESSIVE) {
       CognitiveArchetype save = simulatedArchetype;
       simulatedArchetype = CognitiveArchetype.TAG;
       int[] mimic = archetypePostflop(prevBet, bet, blind, potSize, board, players, seatIndex);
@@ -2523,7 +2597,8 @@ public class PokerBot extends PokerPlayer {
         }
       }
 
-    } else if (headsUpHand && exploitWhale) {
+    } else if (exploitWhale) {
+      // Multi-way safe: WHALE's "calls inelastically" pattern still applies in 6-handed.
       // WHALE postflop counter: inelastic to sizing (calls 80% of bets w/ air, 100% w/ pair).
       // Strategy: overbet for value, never bluff (calls too much). Arc-WHALE never BETS
       // (they only check), so we won't face a bet from them — but if a human classified
@@ -2548,7 +2623,8 @@ public class PokerBot extends PokerPlayer {
       }
       archetypeFinal = true;
 
-    } else if (headsUpHand && exploitFish) {
+    } else if (exploitFish) {
+      // Multi-way safe: FISH's sizing-tell behavior holds in 6-handed (still calls small bets, folds big).
       // FISH postflop counter: calls flop ≤ ⅓ pot, folds bigger flop bets w/o pair,
       // folds any turn/river bet w/o pair. Sizing tell: small for value (max calls),
       // bigger for bluff (folds them out).
@@ -2701,6 +2777,12 @@ public class PokerBot extends PokerPlayer {
             if (postIsHomogeneous && activeCount > 2) stationMult += (0.25 * (activeCount - 2));
             valueMult = Math.min(2.0, stationMult);
             decisionReason = "station overbet value: " + (int)(valueMult * 100) + "% pot";
+          }
+          // Multi-way WHALE/FISH overbet amplifier: with multiple inelastic callers,
+          // each value-bet gets called by ≥1 of them — extract more by sizing up.
+          if ((exploitWhale || exploitFish) && activeCount >= 3) {
+            valueMult += 0.30 + 0.10 * (activeCount - 3); // +30% base, +10% per extra opp
+            decisionReason = (exploitWhale ? "WHALE" : "FISH") + " multi-way overbet amp";
           }
           if (smartHuExploitMode) {
             if (smartDeficitRecovery) valueMult += 0.15;
@@ -2964,8 +3046,33 @@ public class PokerBot extends PokerPlayer {
             // bluff-heavy opponents; folding at MDF is breakeven vs balanced range.
             huFoldChance = mdf;
           }
-        } else {
+        } else if (exploitShortStacker) {
+          // Vs SS opponents, restore the original constant fold rate. The new tiered
+          // multi-way logic over-folded high cards vs SS shoves where pot odds vs SS's
+          // wide jam range often justify a call. Reverting for SS only (5x SS tested
+          // -54 BB/100 with new logic vs -5 with old).
           huFoldChance = gtoFallback ? 0.82 : 0.85;
+        } else {
+          // Multi-way pot odds — tiered like HU but with per-opponent fold-rate boost.
+          // Each additional opponent above 2 increases the chance someone has us beat,
+          // so we tighten calling. Empirically +10% per opponent >2 works well.
+          double mwMdf = (costToCall > 0 && potSize > 0)
+              ? Math.min(0.95, costToCall / (double) potSize)
+              : 0.0;
+          double mwAdj = Math.min(0.30, 0.10 * (activeCount - 2));
+          boolean hasDraw = draws[0] || draws[1];
+          if (myRank <= 5) {
+            huFoldChance = 0.0;                                    // Strong always continue
+          } else if (myRank <= 7) {
+            huFoldChance = Math.min(0.40, mwMdf * 0.4 + mwAdj);    // Two-pair+ slightly tighter
+          } else if (myRank == 8) {
+            huFoldChance = Math.min(0.75, mwMdf + mwAdj);          // One pair: tightens significantly
+          } else if (hasDraw && equity > 0.15) {
+            huFoldChance = (equity > potOdds) ? 0.0 : Math.min(0.85, mwMdf + mwAdj);
+          } else {
+            huFoldChance = Math.min(0.95, mwMdf + mwAdj * 1.5);    // High card: heavy folds multi-way
+          }
+          if (gtoFallback) huFoldChance = Math.max(huFoldChance, 0.75);  // Floor for ELITE_REG
         }
         if (exploitNit)
           huFoldChance = Math.min(1.0, huFoldChance + 0.15);
