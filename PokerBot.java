@@ -189,10 +189,27 @@ public class PokerBot extends PokerPlayer {
       // Thresholds calibrated against measured Arc-bot stats at 200k+ hands (50k-pair Mode 6).
       // See classifierTrace output for ground truth measurements.
 
-      // SHORT_STACKER (behavioral): enters pot ONLY by raising (VPIP ≈ PFR), zero postflop play.
-      // This is the all-in-or-fold fingerprint and works regardless of current stack depth
-      // (Mode 6 duels reset stacks each pair, so the stack-based detector below rarely fires).
-      if (handsPlayed > 10 && Math.abs(vpip - pfr) < 0.05 && vpip >= 0.10 && postflopAFq <= 0.05)
+      // RECALIBRATED 2026-05 from confusion-matrix audit (5 trials × 9 archetypes,
+      // 50k pairs each). Old rule order/thresholds had MANIAC at 0%, TAG at 0%,
+      // BULLY at 40%. Key fixes:
+      //   - SS rule capped at vpip < 0.40 (was unbounded, absorbing MANIAC).
+      //   - MANIAC rule no longer requires flopAFq >= 0.85 (HU vs aggressive
+      //     opponents prevents MANIAC reaching flop, so flopAFq registers as 0).
+      //   - TAG/LAG flopAFq boundary moved 0.50 → 0.62 (TAG measures 0.45-0.55).
+
+      // MANIAC: enters with raise (vpip ≈ pfr), VPIP wide (≥ 0.40 — distinguishes
+      // from SS's narrow push-fold range), low WTSD. flopAFq dropped from rule
+      // because MANIAC's pots end preflop most of the time in tough HU matchups,
+      // leaving postflop AFq unmeasured (0.0).
+      if (vpip >= 0.40 && pfr >= 0.30 && Math.abs(vpip - pfr) < 0.15 && wtsd <= 0.20)
+        return CognitiveArchetype.MANIAC;
+
+      // SHORT_STACKER (behavioral): vpip ≈ pfr, no postflop, low WTSD (no showdowns).
+      // VPIP capped < 0.40 (above that we're looking at MANIAC, not push-fold).
+      // WTSD ≤ 0.20 separates SS (folds out preflop) from low-VPIP NITs (call down,
+      // WTSD ~0.40+).
+      if (handsPlayed > 10 && Math.abs(vpip - pfr) < 0.05
+          && vpip >= 0.10 && vpip < 0.40 && postflopAFq <= 0.05 && wtsd <= 0.20)
         return CognitiveArchetype.SHORT_STACKER;
       // SHORT_STACKER (stack-based): preserved for live games where stack actually drops.
       if (useStack && handsPlayed > 10 && currentStackBB < 25.0)
@@ -202,29 +219,41 @@ public class PokerBot extends PokerPlayer {
       if (vpip <= 0.18 && pfr <= 0.10 && postflopAFq <= 0.10)
         return CognitiveArchetype.NIT;
 
-      // MANIAC: very loose AND raises every hand they play AND rarely reaches showdown.
-      // WTSD is the cleanest MANIAC↔BULLY separator: MANIAC WTSD < 0.10 (always blasts off),
-      // BULLY WTSD ≥ 0.15 (gets called and reaches showdown).
-      if (vpip >= 0.30 && pfr >= 0.30 && flopAFq >= 0.85 && wtsd <= 0.10)
-        return CognitiveArchetype.MANIAC;
-
-      // BULLY: barrels every street (postflop AFq blend ≥ 0.80). Sub-MANIAC behavior
-      // (gated out by MANIAC's WTSD ≤ 0.10 check above).
-      if (postflopAFq >= 0.80 && vpip >= 0.18 && pfr >= 0.20 && pfr < 0.45)
+      // BULLY: very high flopAFq (≥ 0.85) — overbets every flop. flopAFq is more
+      // stable than the F/T/R blend because BULLY may not reach turn/river often
+      // (overbets force folds), so blend value drifts. Drop vpip floor since
+      // measured BULLY vpip dips to 0.15 in HU vs aggressive opponents. pfr < 0.45
+      // separates from MANIAC (vpip ≈ pfr ≥ 0.45).
+      if (flopAFq >= 0.85 && pfr >= 0.10 && pfr < 0.45)
         return CognitiveArchetype.BULLY;
 
-      // LAG: significant flop barreling (≥ 0.50), lower combined postflop AFq than BULLY.
-      // Range overlaps slightly with BULLY at postAFq 0.80-0.85; pfr threshold disambiguates.
-      if (flopAFq >= 0.50 && postflopAFq < 0.85 && vpip >= 0.20 && pfr >= 0.10)
+      // LAG: heavier flop aggression but below BULLY's ceiling. Boundary at 0.65
+      // (was 0.62, but TAG's measured flopAFq peaks at ~0.63, causing TAG → LAG).
+      if (flopAFq >= 0.65 && flopAFq < 0.85 && vpip >= 0.10 && pfr >= 0.10)
         return CognitiveArchetype.LAG;
 
-      // STATION: loose-passive (covers FISH/WHALE — distinct exploit not built per-subtype).
+      // FISH and WHALE share "loose-passive, never bets" profile (PFR ≈ 0, low postflop AFq)
+      // but their CALLING patterns differ:
+      //   WHALE: VPIP ≥ 0.35, calls EVERYTHING postflop including big bets (inelastic to size)
+      //   FISH:  VPIP 0.18-0.35, calls small bets but folds to big bets on flop, folds turn/river air
+      // Distinct exploit logic (overbet vs WHALE, sizing-based bluff vs FISH) made splitting worth it.
+
+      // WHALE: very loose preflop, never raises, never bets postflop.
+      if (vpip >= 0.35 && pfr <= 0.10 && postflopAFq < 0.30)
+        return CognitiveArchetype.WHALE;
+
+      // FISH: moderately loose preflop (looser than NIT, tighter than WHALE), passive.
+      if (vpip >= 0.18 && vpip < 0.35 && pfr <= 0.10 && postflopAFq < 0.30)
+        return CognitiveArchetype.FISH;
+
+      // STATION: catch-all loose-passive (broader pfr range than FISH/WHALE, e.g.,
+      // a human who limps a lot but occasionally raises). Distinct from FISH/WHALE
+      // mostly via PFR and slightly higher postflop AFq tolerance.
       if (vpip >= 0.20 && pfr <= 0.18 && postflopAFq < 0.40)
         return CognitiveArchetype.STATION;
 
-      // TAG: moderate stats, mid aggression, < 50% flopAFq. Wider vpip/pfr bounds to handle
-      // the variance ARC-TAG actually exhibits across runs (vpip 0.17–0.45, pfr 0.10–0.33).
-      if (vpip >= 0.15 && vpip < 0.50 && pfr >= 0.05 && pfr < 0.40 && flopAFq < 0.50)
+      // TAG: moderate stats, mid aggression, flopAFq < 0.65 (boundary with LAG).
+      if (vpip >= 0.15 && vpip < 0.50 && pfr >= 0.05 && pfr < 0.40 && flopAFq < 0.65)
         return CognitiveArchetype.TAG;
 
       return CognitiveArchetype.UNKNOWN;
@@ -539,6 +568,16 @@ public class PokerBot extends PokerPlayer {
   // TAG: TAG only 3-bets ~5% (premiums). We can OPEN WIDER vs TAG since they fold 75%
   //   to opens AND rarely punish marginal opens. Gain blinds via fold equity.
   private static final boolean EXPLOIT_TAG_WIDE_OPEN              = true;
+
+  // Arc-mimic strategies: when our analytical counters can't beat the structural
+  // edge of an Arc-bot's deterministic play, just BORROW the Arc-bot's playbook.
+  // Ground-truth from Arc-vs-Arc tests (50k pairs each):
+  //   Arc-TAG vs Arc-BULLY: +91.7 BB/100 (TAG wins big)
+  //   Arc-TAG vs Arc-LAG:   +17.5 BB/100 (TAG wins)
+  //   Arc-NIT vs Arc-TAG:   ~0 BB/100   (NIT loses only ~12 to TAG vs God's -65)
+  // These flags swap our hard counters for literal Arc-bot mimics in HU only.
+  private static final boolean EXPLOIT_NIT_MIMIC_VS_TAG        = true;
+  private static final boolean EXPLOIT_TAG_MIMIC_VS_AGGRESSIVE = true; // BULLY/LAG
 
   public PokerBot(PokerPlayer[] currentPlayers) {
     super("temp");
@@ -1261,6 +1300,11 @@ public class PokerBot extends PokerPlayer {
       if (!protectedMode && pr instanceof PokerBot && ((PokerBot) pr).botLevel == 3
           && ((PokerBot) pr).simulatedArchetype != null) {
         ca = ((PokerBot) pr).simulatedArchetype;
+        // X-Ray REMAP: Arc-STATION's postflop calls EVERYTHING (more inelastic than even
+        // Arc-WHALE which folds 20% air). Route STATION → WHALE so the overbet-for-value
+        // exploit fires. Without this remap, STATION X-Ray reads bypass exploitWhale and
+        // fall back to the legacy exploitStation logic which is less profitable.
+        if (ca == CognitiveArchetype.STATION) ca = CognitiveArchetype.WHALE;
         opponentArchetypes.add(ca);
         if (foundHumanFocus) continue;
         if (headsUpTable || pr.getChips() > focusStack) {
@@ -1309,7 +1353,9 @@ public class PokerBot extends PokerPlayer {
     for (PokerPlayer pr : players) {
       if (pr == null || pr == this || !pr.inHand()) continue;
       if (!protectedMode && pr instanceof PokerBot && ((PokerBot) pr).botLevel == 3
-          && ((PokerBot) pr).simulatedArchetype == focusArchetype) { xRayActive = true; break; }
+          && (((PokerBot) pr).simulatedArchetype == focusArchetype
+              || (((PokerBot) pr).simulatedArchetype == CognitiveArchetype.STATION
+                  && focusArchetype == CognitiveArchetype.WHALE))) { xRayActive = true; break; }
       CognitiveProfile cp = getCognitiveDB().get(pr.getName());
       if (cp != null && cp.getArchetype() == focusArchetype) { focusOpponentProfile = cp; break; }
     }
@@ -1331,6 +1377,11 @@ public class PokerBot extends PokerPlayer {
     boolean exploitStation      = (focusArchetype == CognitiveArchetype.STATION
                                     || focusArchetype == CognitiveArchetype.WHALE
                                     || focusArchetype == CognitiveArchetype.FISH);
+    // FISH and WHALE share STATION's broad "loose-passive" exploit, but get distinct
+    // sizing exploits in postflop (WHALE: overbet for inelastic calls; FISH: size-tell
+    // bluffs, since FISH folds to >1/3 pot on flop and any bet on turn/river).
+    boolean exploitWhale        = (focusArchetype == CognitiveArchetype.WHALE);
+    boolean exploitFish         = (focusArchetype == CognitiveArchetype.FISH);
     boolean gtoFallback         = (focusArchetype == CognitiveArchetype.ELITE_REG);
     // PER-ARCHETYPE REBUILD (TAG/BULLY/LAG/SS): fire when classifier has converged
     // (Neural Sandbox + phaseStrength >= 0.5 from EMA observation) OR when X-Ray
@@ -1445,7 +1496,27 @@ public class PokerBot extends PokerPlayer {
           || (suited && numhand[1] - numhand[0] <= 2 && numhand[1] >= 9);
     }
 
-    if (premium || (chipleader && shortStacks && stealRange) || mixedStrategy) {
+    // ARC-MIMIC PREFLOP: when our analytical counter loses to an Arc-bot's
+    // structural edge, just play the Arc-bot's strategy verbatim. HU only,
+    // X-Ray-confirmed reads only (gated via exploit booleans which require
+    // archetypeCounterReady). Calls archetypePreflop() with a temporary
+    // simulatedArchetype swap so we get the exact deterministic playbook.
+    if (headsUpTable && exploitTag && EXPLOIT_NIT_MIMIC_VS_TAG) {
+      CognitiveArchetype save = simulatedArchetype;
+      simulatedArchetype = CognitiveArchetype.NIT;
+      int[] mimic = archetypePreflop(prevBet, bet, blind, lastRaise, players, seatIndex);
+      simulatedArchetype = save;
+      action[0] = mimic[0]; action[1] = mimic[1];
+      decisionReason = "NIT-mimic vs TAG (preflop)";
+    } else if (headsUpTable && (exploitBully || exploitLag)
+               && EXPLOIT_TAG_MIMIC_VS_AGGRESSIVE) {
+      CognitiveArchetype save = simulatedArchetype;
+      simulatedArchetype = CognitiveArchetype.TAG;
+      int[] mimic = archetypePreflop(prevBet, bet, blind, lastRaise, players, seatIndex);
+      simulatedArchetype = save;
+      action[0] = mimic[0]; action[1] = mimic[1];
+      decisionReason = "TAG-mimic vs " + (exploitBully ? "BULLY" : "LAG") + " (preflop)";
+    } else if (premium || (chipleader && shortStacks && stealRange) || mixedStrategy) {
       decisionReason = "open/3bet value lane: premium or pressure steal or mixed strategy";
       action[0] = 3;
       int intended = (bet > blind) ? (bet * 3) : (blind * 3);
@@ -2035,6 +2106,8 @@ public class PokerBot extends PokerPlayer {
       if (!protectedMode && pr instanceof PokerBot && ((PokerBot) pr).botLevel == 3
           && ((PokerBot) pr).simulatedArchetype != null) {
         ca = ((PokerBot) pr).simulatedArchetype;
+        // X-Ray remap: STATION → WHALE (see preflop comment).
+        if (ca == CognitiveArchetype.STATION) ca = CognitiveArchetype.WHALE;
         postOpponentArchetypes.add(ca);
         if (foundHumanFocus) continue;
         if (headsUpHand || pr.getChips() > focusStack) { focusStack = pr.getChips(); focusArchetype = ca; }
@@ -2076,7 +2149,9 @@ public class PokerBot extends PokerPlayer {
     for (PokerPlayer pr : players) {
       if (pr == null || pr == this || !pr.inHand()) continue;
       if (!protectedMode && pr instanceof PokerBot && ((PokerBot) pr).botLevel == 3
-          && ((PokerBot) pr).simulatedArchetype == focusArchetype) { postXRayActive = true; break; }
+          && (((PokerBot) pr).simulatedArchetype == focusArchetype
+              || (((PokerBot) pr).simulatedArchetype == CognitiveArchetype.STATION
+                  && focusArchetype == CognitiveArchetype.WHALE))) { postXRayActive = true; break; }
       CognitiveProfile cp = getCognitiveDB().get(pr.getName());
       if (cp != null && cp.getArchetype() == focusArchetype) { focusPostProfile = cp; break; }
     }
@@ -2097,6 +2172,8 @@ public class PokerBot extends PokerPlayer {
     boolean exploitStation      = (focusArchetype == CognitiveArchetype.STATION
                                     || focusArchetype == CognitiveArchetype.WHALE
                                     || focusArchetype == CognitiveArchetype.FISH);
+    boolean exploitWhale        = (focusArchetype == CognitiveArchetype.WHALE);
+    boolean exploitFish         = (focusArchetype == CognitiveArchetype.FISH);
     boolean exploitManiac       = (focusArchetype == CognitiveArchetype.MANIAC);
     boolean gtoFallback         = (focusArchetype == CognitiveArchetype.ELITE_REG);
     // PER-ARCHETYPE REBUILD: fire when Neural Sandbox classifier has converged
@@ -2226,7 +2303,25 @@ public class PokerBot extends PokerPlayer {
     boolean isFlop          = (board.length == 3);
     boolean isRiver         = (board.length == 5);
 
-    if (headsUpHand && exploitTag) {
+    // ARC-MIMIC POSTFLOP: borrow the Arc-bot's exact deterministic playbook
+    // when our hand-tuned counter loses to its structural edge.
+    if (headsUpHand && exploitTag && EXPLOIT_NIT_MIMIC_VS_TAG) {
+      CognitiveArchetype save = simulatedArchetype;
+      simulatedArchetype = CognitiveArchetype.NIT;
+      int[] mimic = archetypePostflop(prevBet, bet, blind, potSize, board, players, seatIndex);
+      simulatedArchetype = save;
+      act = mimic[0]; actAmount = mimic[1];
+      decisionReason = "NIT-mimic vs TAG (postflop)";
+      archetypeFinal = true;
+    } else if (headsUpHand && (exploitBully || exploitLag) && EXPLOIT_TAG_MIMIC_VS_AGGRESSIVE) {
+      CognitiveArchetype save = simulatedArchetype;
+      simulatedArchetype = CognitiveArchetype.TAG;
+      int[] mimic = archetypePostflop(prevBet, bet, blind, potSize, board, players, seatIndex);
+      simulatedArchetype = save;
+      act = mimic[0]; actAmount = mimic[1];
+      decisionReason = "TAG-mimic vs " + (exploitBully ? "BULLY" : "LAG") + " (postflop)";
+      archetypeFinal = true;
+    } else if (headsUpHand && exploitTag) {
       // TAG bets ⇔ pair, checks ⇔ no pair. Never bluffs.
       if (!zeroBet) {
         if (myRank <= 7) {
@@ -2424,6 +2519,63 @@ public class PokerBot extends PokerPlayer {
           }
         }
       }
+
+    } else if (headsUpHand && exploitWhale) {
+      // WHALE postflop counter: inelastic to sizing (calls 80% of bets w/ air, 100% w/ pair).
+      // Strategy: overbet for value, never bluff (calls too much). Arc-WHALE never BETS
+      // (they only check), so we won't face a bet from them — but if a human classified
+      // as WHALE bets, treat it as value and adjust.
+      if (!zeroBet) {
+        if (myRank <= 8 || (draws[0] || draws[1])) {
+          act = 1; actAmount = bet - prevBet;
+          decisionReason = "WHALE counter: call w/ pair+/draw (their bets are value but we have edge)";
+        } else {
+          act = 2; actAmount = 0;
+          decisionReason = "WHALE counter: fold air vs WHALE bet";
+        }
+      } else if (myRank <= 8) {
+        // Pair+ → overbet 120% pot. WHALE calls inelastically.
+        act = 3; actAmount = (int)(potSize * 1.20);
+        if (board.length == 3) cbetFlop = true;
+        decisionReason = "WHALE counter: overbet 120% pot for value";
+      } else {
+        // Air → check. Bluffing WHALE is −EV (calls 80% air-fold rate is just 20%).
+        act = 1; actAmount = 0;
+        decisionReason = "WHALE counter: check air (no bluffs vs WHALE)";
+      }
+      archetypeFinal = true;
+
+    } else if (headsUpHand && exploitFish) {
+      // FISH postflop counter: calls flop ≤ ⅓ pot, folds bigger flop bets w/o pair,
+      // folds any turn/river bet w/o pair. Sizing tell: small for value (max calls),
+      // bigger for bluff (folds them out).
+      boolean fishIsFlop = (board.length == 3);
+      if (!zeroBet) {
+        boolean smallBet = (bet - prevBet) <= potSize / 3;
+        if (myRank <= 8) {
+          act = 1; actAmount = bet - prevBet;
+          decisionReason = "FISH counter: call w/ pair+";
+        } else if (smallBet && (draws[0] || draws[1]) && equity >= 0.30) {
+          act = 1; actAmount = bet - prevBet;
+          decisionReason = "FISH counter: call small w/ draw";
+        } else {
+          act = 2; actAmount = 0;
+          decisionReason = "FISH counter: fold air vs FISH bet";
+        }
+      } else if (myRank <= 8) {
+        // Value: bet 1/3 pot on flop (max calls), 60% turn/river (FISH calls w/ pair).
+        act = 3;
+        actAmount = (int)(potSize * (fishIsFlop ? 0.33 : 0.60));
+        if (fishIsFlop) cbetFlop = true;
+        decisionReason = "FISH counter: value bet (small flop for max calls, bigger later)";
+      } else {
+        // Bluff: bet > 1/3 pot on flop (folds FISH air), any size turn/river.
+        act = 3;
+        actAmount = (int)(potSize * (fishIsFlop ? 0.55 : 0.45));
+        if (fishIsFlop) cbetFlop = true;
+        decisionReason = "FISH counter: bluff bet (FISH folds >⅓ pot flop, any turn/river)";
+      }
+      archetypeFinal = true;
     }
 
     // Stack-clip safety on hard-counter overbets.

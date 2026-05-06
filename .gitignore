@@ -5,6 +5,8 @@
 /src/test/
 *.class
 dbg_count.txt
+verify_raw_20260505_181314.tsv 
+verify_results_20260505_181314.txt
 
 Chunk123TelemetryVerification.java
 Chunk4QuickCheck.java
