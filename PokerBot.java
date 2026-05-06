@@ -574,10 +574,13 @@ public class PokerBot extends PokerPlayer {
   // Ground-truth from Arc-vs-Arc tests (50k pairs each):
   //   Arc-TAG vs Arc-BULLY: +91.7 BB/100 (TAG wins big)
   //   Arc-TAG vs Arc-LAG:   +17.5 BB/100 (TAG wins)
-  //   Arc-NIT vs Arc-TAG:   ~0 BB/100   (NIT loses only ~12 to TAG vs God's -65)
-  // These flags swap our hard counters for literal Arc-bot mimics in HU only.
-  private static final boolean EXPLOIT_NIT_MIMIC_VS_TAG        = true;
-  private static final boolean EXPLOIT_TAG_MIMIC_VS_AGGRESSIVE = true; // BULLY/LAG
+  //   Arc-NIT vs Arc-TAG:   -12 BB/100   (NIT loses only ~12 to TAG vs God's -65)
+  // Split into preflop/postflop because NIT-mimic preflop is tight discipline (good)
+  // but NIT-mimic postflop never bets — leaves money on table since TAG folds 95%
+  // of postflop hands without pair. Hybrid: NIT preflop + existing TAG counter postflop.
+  private static final boolean EXPLOIT_NIT_MIMIC_VS_TAG_PRE    = true;
+  private static final boolean EXPLOIT_NIT_MIMIC_VS_TAG_POST   = false; // hybrid: keep TAG counter postflop
+  private static final boolean EXPLOIT_TAG_MIMIC_VS_AGGRESSIVE = true;  // BULLY/LAG
 
   public PokerBot(PokerPlayer[] currentPlayers) {
     super("temp");
@@ -1501,7 +1504,7 @@ public class PokerBot extends PokerPlayer {
     // X-Ray-confirmed reads only (gated via exploit booleans which require
     // archetypeCounterReady). Calls archetypePreflop() with a temporary
     // simulatedArchetype swap so we get the exact deterministic playbook.
-    if (headsUpTable && exploitTag && EXPLOIT_NIT_MIMIC_VS_TAG) {
+    if (headsUpTable && exploitTag && EXPLOIT_NIT_MIMIC_VS_TAG_PRE) {
       CognitiveArchetype save = simulatedArchetype;
       simulatedArchetype = CognitiveArchetype.NIT;
       int[] mimic = archetypePreflop(prevBet, bet, blind, lastRaise, players, seatIndex);
@@ -2305,7 +2308,7 @@ public class PokerBot extends PokerPlayer {
 
     // ARC-MIMIC POSTFLOP: borrow the Arc-bot's exact deterministic playbook
     // when our hand-tuned counter loses to its structural edge.
-    if (headsUpHand && exploitTag && EXPLOIT_NIT_MIMIC_VS_TAG) {
+    if (headsUpHand && exploitTag && EXPLOIT_NIT_MIMIC_VS_TAG_POST) {
       CognitiveArchetype save = simulatedArchetype;
       simulatedArchetype = CognitiveArchetype.NIT;
       int[] mimic = archetypePostflop(prevBet, bet, blind, potSize, board, players, seatIndex);
