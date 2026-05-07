@@ -21,6 +21,84 @@ public class PokerSimulator {
     private static final String MODE6_TELEMETRY_OUTPUT_FILE = "mode6_telemetry_output.txt";
     private static final String MODE7_TELEMETRY_OUTPUT_FILE = "mode7_telemetry_output.txt";
 
+    // Hand-level CSV sink for research-paper experiments.
+    // Opened by Mode6Verify / Mode7Verify (or programmatic callers) before the
+    // run via openHandCsv(...). Each completed hand writes one row per seat.
+    // Closed at the end of the verify harness.
+    private static volatile BufferedWriter handCsvWriter = null;
+    private static volatile String handCsvRunId = "";
+    private static volatile String handCsvArchetypeFocus = "";
+    private static final Object HAND_CSV_LOCK = new Object();
+    private static final int HAND_CSV_BB_SIZE = 20;
+
+    public static void openHandCsv(String path, String runId, String archetypeFocus) throws IOException {
+        synchronized (HAND_CSV_LOCK) {
+            closeHandCsvLocked();
+            handCsvRunId = runId == null ? "" : runId;
+            handCsvArchetypeFocus = archetypeFocus == null ? "" : archetypeFocus;
+            BufferedWriter w = new BufferedWriter(new FileWriter(path, false));
+            w.write("run_id,seed,mode,archetype_focus,worker_id,hand_idx,pass,seat,archetype,hole_cards,board,net_chips,winner_tier,bb_size\n");
+            handCsvWriter = w;
+        }
+    }
+
+    public static void closeHandCsv() {
+        synchronized (HAND_CSV_LOCK) {
+            closeHandCsvLocked();
+        }
+    }
+
+    private static void closeHandCsvLocked() {
+        if (handCsvWriter != null) {
+            try { handCsvWriter.flush(); handCsvWriter.close(); } catch (IOException ignore) {}
+            handCsvWriter = null;
+        }
+    }
+
+    private static String currentModeLabel() {
+        if (!isProtectedMode) return "unprotected";
+        return isNeuralProtectedMode ? "neural" : "pure";
+    }
+
+    private static String cardsToCsvString(Card[] cards) {
+        if (cards == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < cards.length; i++) {
+            if (cards[i] == null) continue;
+            if (sb.length() > 0) sb.append('|');
+            sb.append(cards[i].getValue());
+        }
+        return sb.toString();
+    }
+
+    private static void writeHandCsvRow(int handIdx, String pass, int seat, PokerBot bot,
+                                        Card[] hole, Card[] board, int netChips, int winnerTier) {
+        BufferedWriter w = handCsvWriter;
+        if (w == null) return;
+        String archetype = (bot == null || bot.simulatedArchetype == null)
+                ? "" : bot.simulatedArchetype.name();
+        Integer workerId = SimRng.getThreadWorkerId();
+        StringBuilder row = new StringBuilder();
+        row.append(handCsvRunId).append(',')
+           .append(Deck.getSeed()).append(',')
+           .append(currentModeLabel()).append(',')
+           .append(handCsvArchetypeFocus).append(',')
+           .append(workerId == null ? "" : workerId).append(',')
+           .append(handIdx).append(',')
+           .append(pass).append(',')
+           .append(seat).append(',')
+           .append(archetype).append(',')
+           .append(cardsToCsvString(hole)).append(',')
+           .append(cardsToCsvString(board)).append(',')
+           .append(netChips).append(',')
+           .append(winnerTier).append(',')
+           .append(HAND_CSV_BB_SIZE)
+           .append('\n');
+        synchronized (HAND_CSV_LOCK) {
+            try { w.write(row.toString()); } catch (IOException ignore) {}
+        }
+    }
+
     public static void main(String[] args) {
         setup();
         while (true) {
@@ -512,8 +590,10 @@ public class PokerSimulator {
             }
             duplicateGodVsDumbNet += other.duplicateGodVsDumbNet;
             duplicateGodVsSmartNet += other.duplicateGodVsSmartNet;
+            duplicateGodVsArcNet += other.duplicateGodVsArcNet;
             combinedGodVsDumbNet += other.combinedGodVsDumbNet;
             combinedGodVsSmartNet += other.combinedGodVsSmartNet;
+            combinedGodVsArcNet += other.combinedGodVsArcNet;
             mergeDoubleMap(duplicateGodOpponentNet, other.duplicateGodOpponentNet);
             mergeDoubleMap(combinedGodOpponentNet, other.combinedGodOpponentNet);
             absorbLevels(other.playerLevelsByName);
@@ -852,7 +932,10 @@ public class PokerSimulator {
         long t1TotalGold = 0;
         long t2TotalGold = 0;
         int t1Busts = 0, t2Busts = 0;
-        int t1Wins = 0, t2Wins = 0;
+        // Wins use half-credit on chops so percentages sum to 100% across the
+        // pair. Previously `winner == -1` incremented both, double-counting.
+        double t1Wins = 0, t2Wins = 0;
+        int chops = 0;
         double t1ProfitSquares = 0;
         double t2ProfitSquares = 0;
 
@@ -867,6 +950,9 @@ public class PokerSimulator {
 
         while (pairCount < pairs) {
             pairCount++;
+            // Per-pair RNG seeding (when Deck is seeded) — workerId=0 since
+            // Mode 6 is single-threaded by design.
+            if (SimRng.isSeeded()) SimRng.setHandSeed(0, pairCount);
             // Preserve model memory across pairs while resetting chip state.
             // Canonicalize order so pass-1 accounting remains Bot A index 0 / Bot B index
             // 1.
@@ -914,8 +1000,14 @@ public class PokerSimulator {
             else if (winner1 == 1)
                 t2Wins++;
             else if (winner1 == -1) {
-                t1Wins++;
-                t2Wins++;
+                t1Wins += 0.5;
+                t2Wins += 0.5;
+                chops++;
+            }
+
+            if (handCsvWriter != null) {
+                writeHandCsvRow(pairCount, "A", 0, engine.bots.get(0), holeCards[0], board, p1A, winner1);
+                writeHandCsvRow(pairCount, "A", 1, engine.bots.get(1), holeCards[1], board, p1B, winner1);
             }
 
             // Pass 2: RESET AND SWAP PHYSICALLY
@@ -959,8 +1051,15 @@ public class PokerSimulator {
             else if (winner2 == 1)
                 t1Wins++;
             else if (winner2 == -1) {
-                t1Wins++;
-                t2Wins++;
+                t1Wins += 0.5;
+                t2Wins += 0.5;
+                chops++;
+            }
+
+            if (handCsvWriter != null) {
+                // Pass 2: get(0) is now Bot B (net = p2B), get(1) is now Bot A (net = p2A).
+                writeHandCsvRow(pairCount, "B", 0, engine.bots.get(0), pass2HoleCards[0], board, p2B, winner2);
+                writeHandCsvRow(pairCount, "B", 1, engine.bots.get(1), pass2HoleCards[1], board, p2A, winner2);
             }
 
             // Restore canonical order for next pair.
@@ -979,13 +1078,15 @@ public class PokerSimulator {
         emitLine(mode6TelemetryOutput, "Bot A [" + name1 + "] vs Bot B [" + name2 + "]");
         int totalHands = pairs * 2;
         emitFormat(mode6TelemetryOutput,
-                "Bot A [%s] -> Win Rate: %.1f%% (%d) | Bust Rate: %.2f%% (%d) | Net Advantage: %s✨%d\n",
+                "Bot A [%s] -> Win Rate: %.1f%% (%.1f) | Bust Rate: %.2f%% (%d) | Net Advantage: %s✨%d\n",
                 name1, (t1Wins * 100.0 / totalHands), t1Wins, (t1Busts * 100.0 / totalHands), t1Busts,
                 (t1TotalGold >= 0 ? "+" : ""), t1TotalGold);
         emitFormat(mode6TelemetryOutput,
-                "Bot B [%s] -> Win Rate: %.1f%% (%d) | Bust Rate: %.2f%% (%d) | Net Advantage: %s✨%d\n",
+                "Bot B [%s] -> Win Rate: %.1f%% (%.1f) | Bust Rate: %.2f%% (%d) | Net Advantage: %s✨%d\n",
                 name2, (t2Wins * 100.0 / totalHands), t2Wins, (t2Busts * 100.0 / totalHands), t2Busts,
                 (t2TotalGold >= 0 ? "+" : ""), t2TotalGold);
+        emitFormat(mode6TelemetryOutput, "Chops: %d (%.1f%% of total hands; each credited 0.5 to both bots)\n",
+                chops, (chops * 100.0 / totalHands));
 
         double t1MeanProfit = (double) t1TotalGold / totalHands;
         double t2MeanProfit = (double) t2TotalGold / totalHands;
@@ -1316,6 +1417,9 @@ public class PokerSimulator {
             SimulationTotals totals = new SimulationTotals();
             PokerBot.resetThreadCognitiveDB();
             try {
+                // Seed worker thread before engine construction (per-hand seeding
+                // inside runIndividualContinuous is not yet plumbed — see note).
+                if (SimRng.isSeeded()) SimRng.setHandSeed(0, 0);
                 SimEngine engine = new SimEngine(dumbCount, smartCount, godCount, false, isProtectedMode,
                         nightmareIntensity, false);
                 engine.setDiagnosticsContextLabels("MODE7", "BASELINE", 0);
@@ -1342,6 +1446,7 @@ public class PokerSimulator {
                 SimulationTotals local = new SimulationTotals();
                 PokerBot.resetThreadCognitiveDB();
                 try {
+                    if (SimRng.isSeeded()) SimRng.setHandSeed(workerId, 0);
                     SimEngine engine = new SimEngine(dumbCount, smartCount, godCount, false, isProtectedMode,
                             nightmareIntensity, false);
                     engine.setDiagnosticsContextLabels("MODE7", "BASELINE", workerId);
@@ -1415,6 +1520,11 @@ public class PokerSimulator {
 
         PokerBot.resetThreadCognitiveDB();
         try {
+            // Seed the worker thread BEFORE constructing engines, so any
+            // bot-construction RNG calls (predatoryIntent rolls, archetype
+            // sampling, etc.) are reproducible per (workerId, 0). Per-hand
+            // seeding inside the loop overrides this for hand-time decisions.
+            if (SimRng.isSeeded()) SimRng.setHandSeed(workerId, 0);
             SimEngine engineA = new SimEngine(dumbCount, smartCount, godCount, false, isProtectedMode,
                     nightmareIntensity, false);
             SimEngine engineB = new SimEngine(dumbCount, smartCount, godCount, false, isProtectedMode,
@@ -1430,18 +1540,50 @@ public class PokerSimulator {
             // afterward.
             Collections.reverse(engineB.bots);
 
+            // Snapshot the canonical seat order so each hand's permutation is
+            // applied to the original baseline rather than to whatever the
+            // previous hand's permutation produced (otherwise permutations
+            // compound and the per-seat sample distribution is non-uniform).
+            List<PokerBot> canonicalA = new ArrayList<>(engineA.bots);
+            List<PokerBot> canonicalB = new ArrayList<>(engineB.bots);
+
             for (int hand = 1; hand <= pairDeals; hand++) {
+                // Multithread reproducibility: seed the per-thread RNG and the
+                // deck stream from a deterministic mix of (baseSeed, workerId,
+                // hand). With the same baseSeed and same partition, two runs
+                // produce byte-identical results regardless of thread schedule.
+                if (SimRng.isSeeded()) SimRng.setHandSeed(workerId, hand);
                 resetAllStacksTo20bb(engineA);
                 resetAllStacksTo20bb(engineB);
-                applySharedSeatPermutation(engineA, engineB);
+                applySharedSeatPermutation(engineA, engineB, canonicalA, canonicalB);
 
                 PokerDeck pairDeck = new PokerDeck();
                 Card[][] holeCards = pairDeck.deal(engineA.bots.size());
                 Card[][] swappedHoleCards = buildSwappedSeatHoleCards(holeCards);
                 Card[] board = pairDeck.deal();
 
-                engineA.runHand(hand, false, true, holeCards, board);
-                engineB.runHand(hand, false, true, swappedHoleCards, board);
+                int[] startStacksA = null;
+                int[] startStacksB = null;
+                if (handCsvWriter != null) {
+                    startStacksA = new int[engineA.bots.size()];
+                    startStacksB = new int[engineB.bots.size()];
+                    for (int i = 0; i < engineA.bots.size(); i++) startStacksA[i] = engineA.bots.get(i).getChips();
+                    for (int i = 0; i < engineB.bots.size(); i++) startStacksB[i] = engineB.bots.get(i).getChips();
+                }
+
+                int winnerA = engineA.runHand(hand, false, true, holeCards, board);
+                int winnerB = engineB.runHand(hand, false, true, swappedHoleCards, board);
+
+                if (handCsvWriter != null) {
+                    for (int i = 0; i < engineA.bots.size(); i++) {
+                        int net = engineA.bots.get(i).getChips() - startStacksA[i];
+                        writeHandCsvRow(hand, "PAIRED_A", i, engineA.bots.get(i), holeCards[i], board, net, winnerA);
+                    }
+                    for (int i = 0; i < engineB.bots.size(); i++) {
+                        int net = engineB.bots.get(i).getChips() - startStacksB[i];
+                        writeHandCsvRow(hand, "PAIRED_B", i, engineB.bots.get(i), swappedHoleCards[i], board, net, winnerB);
+                    }
+                }
 
                 stats.addPairSamples(
                         engineA.getLastHandTierRawProfits(),
@@ -1480,7 +1622,8 @@ public class PokerSimulator {
         }
     }
 
-    private static void applySharedSeatPermutation(SimEngine engineA, SimEngine engineB) {
+    private static void applySharedSeatPermutation(SimEngine engineA, SimEngine engineB,
+                                                   List<PokerBot> canonicalA, List<PokerBot> canonicalB) {
         int n = engineA.bots.size();
         if (n <= 1 || engineB.bots.size() != n) {
             return;
@@ -1490,19 +1633,20 @@ public class PokerSimulator {
         for (int i = 0; i < n; i++)
             perm[i] = i;
 
-        ThreadLocalRandom rng = ThreadLocalRandom.current();
         for (int i = n - 1; i > 0; i--) {
-            int j = rng.nextInt(i + 1);
+            int j = SimRng.nextInt(i + 1);
             int tmp = perm[i];
             perm[i] = perm[j];
             perm[j] = tmp;
         }
 
-        List<PokerBot> oldA = new ArrayList<>(engineA.bots);
-        List<PokerBot> oldB = new ArrayList<>(engineB.bots);
+        // Permute against the canonical baseline so permutations don't compound
+        // across hands.
+        List<PokerBot> baseA = (canonicalA != null) ? canonicalA : new ArrayList<>(engineA.bots);
+        List<PokerBot> baseB = (canonicalB != null) ? canonicalB : new ArrayList<>(engineB.bots);
         for (int seat = 0; seat < n; seat++) {
-            engineA.bots.set(seat, oldA.get(perm[seat]));
-            engineB.bots.set(seat, oldB.get(perm[seat]));
+            engineA.bots.set(seat, baseA.get(perm[seat]));
+            engineB.bots.set(seat, baseB.get(perm[seat]));
         }
     }
 
@@ -2380,7 +2524,10 @@ public class PokerSimulator {
         private static final double PREFLOP_EMA_ALPHA = 0.05;
         private static final double POSTFLOP_EMA_ALPHA = 0.05;
         private static final int AIEV_RUNOUT_SAMPLE_CAP = 384;
-        private static final Card[] CANONICAL_DECK = new Deck().getCards();
+        // Use the unshuffled canonical card list so iteration order doesn't
+        // depend on which thread triggered SimEngine class loading (which
+        // would race against per-thread Deck shuffles in parallel mode).
+        private static final Card[] CANONICAL_DECK = Deck.canonicalCards();
         private boolean[] preflopVPIPFlags;
         private boolean[] preflopPFRFlags;
         private int[][] postflopAggressionActions;
@@ -2515,7 +2662,7 @@ public class PokerSimulator {
                     createEliteRegBot();
             }
             if (shouldShuffle)
-                Collections.shuffle(bots);
+                SimRng.shuffle(bots);
         }
 
         private void createBot(int level) {
@@ -3108,7 +3255,7 @@ public class PokerSimulator {
                     b.removeChips(b.getChips());
                     b.addChips(400); // 20bb fresh
                 }
-                Collections.shuffle(bots); // randomize seating
+                SimRng.shuffle(bots); // randomize seating
                 handCount++;
                 runHand(handCount, verbose, true);
             }
@@ -3123,7 +3270,7 @@ public class PokerSimulator {
                 b.removeChips(b.getChips());
                 b.addChips(400);
             }
-            Collections.shuffle(bots);
+            SimRng.shuffle(bots);
             handCount++;
             runHand(handCount, verbose, true);
         }
@@ -3576,7 +3723,7 @@ public class PokerSimulator {
                         int remainder = sidePot.amount % winnerIndices.size();
 
                         // Randomize remainder distribution start to avoid seat-index bias.
-                        int startWinner = (int) (Math.random() * winnerIndices.size());
+                        int startWinner = SimRng.nextInt(winnerIndices.size());
                         for (int k = 0; k < winnerIndices.size(); k++) {
                             int winnerIdxInList = (startWinner + k) % winnerIndices.size();
                             int idx = winnerIndices.get(winnerIdxInList);
@@ -3959,10 +4106,9 @@ public class PokerSimulator {
         private int[] sampleUniqueIndices(int size, int needed) {
             int[] picks = new int[needed];
             boolean[] used = new boolean[size];
-            ThreadLocalRandom rng = ThreadLocalRandom.current();
             int filled = 0;
             while (filled < needed) {
-                int idx = rng.nextInt(size);
+                int idx = SimRng.nextInt(size);
                 if (!used[idx]) {
                     used[idx] = true;
                     picks[filled++] = idx;

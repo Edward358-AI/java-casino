@@ -1,0 +1,5 @@
+seed_batches: [1, 2, 3, 4, 5]
+mode7_workers: 8           
+mode6_workers: 1           
+sample_size_pairs: 1000000  # Mode 6
+sample_size_hands: 100000  # Mode 7
