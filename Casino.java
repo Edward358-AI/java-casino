@@ -63,7 +63,7 @@ public class Casino { // will operate blackjack/poker games
           ps[i].addChips(pChips);
         }
         for (int i = realPlayers; i < totalPlayers; i++)
-          ps[i] = new PokerBot(ps);
+          ps[i] = PokerBot.createLiveGameBot(ps);
         
         // Ensure at least one God Bot (Level 2) spawns initially
         boolean godSpawned = false;

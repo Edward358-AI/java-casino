@@ -1,15 +1,17 @@
 *.class
-
+.DS_Store
 # Test files and dependencies
 /lib/
 /src/test/
 *.class
+dbg_count.txt
 
 Chunk123TelemetryVerification.java
 Chunk4QuickCheck.java
 Chunk5QuickCheck.java
 Chunk6QuickCheck.java
 Phase8VerificationSuite.java
+ResearchGradeVerificationSuite.java
 *.orig
 *.rej
 *.patch
@@ -28,3 +30,10 @@ patch_all.py
 patch_game_snapshots.sh
 fix_hud.py
 update_preflop.sh
+
+# Generated telemetry and verification artifacts
+mode6_telemetry_output.txt
+mode7_telemetry_output.txt
+.jqwik-database
+scratch/phase_c_reports/
+phase_c_analysis.py

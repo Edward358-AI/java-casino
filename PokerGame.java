@@ -46,7 +46,7 @@ class PokerGame {
   private boolean huTurnBarrelSeen = false;
   private boolean huRiverLargeBetResponsePending = false;
   private boolean huRiverLargeBetSeen = false;
-  
+
   // PHASE 8 COGNITIVE MATRIX: Street Tracking State
   // 0 = Preflop, 1 = Flop, 2 = Turn, 3 = River
   public int currentStreet = 0;
@@ -85,20 +85,24 @@ class PokerGame {
     return mp;
   }
 
-
   private String cardsToString(Card[] cards) {
-    if (cards == null || cards.length == 0) return "(none)";
+    if (cards == null || cards.length == 0)
+      return "(none)";
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < cards.length; i++) {
-      if(cards[i] != null) sb.append(cards[i].getValue()).append(" ");
+      if (cards[i] != null)
+        sb.append(cards[i].getValue()).append(" ");
     }
     return sb.toString().trim();
   }
 
   private String seatRoleTag(int idx) {
-    if (idx == 0) return "SB";
-    if (idx == 1) return "BB";
-    if (idx == players.length - 1) return "D";
+    if (idx == 0)
+      return "SB";
+    if (idx == 1)
+      return "BB";
+    if (idx == players.length - 1)
+      return "D";
     return "-";
   }
 
@@ -108,15 +112,19 @@ class PokerGame {
     }
     StringBuilder sb = new StringBuilder();
     String boardText = (board == null) ? "(preflop)" : cardsToString(board);
-    sb.append("[TABLE TRACE][").append(phase).append("] board=").append(boardText).append(", pot=").append(pot.getTotalPot())
+    sb.append("[TABLE TRACE][").append(phase).append("] board=").append(boardText).append(", pot=")
+        .append(pot.getTotalPot())
         .append(", tableBet=").append(currBet).append(", lastRaise=").append(lastRaise).append("\n");
     for (int seat = 0; seat < players.length; seat++) {
       PokerPlayer pl = players[seat];
-      if (pl == null) continue;
+      if (pl == null)
+        continue;
       int contributed = (currConts != null && seat < currConts.length) ? currConts[seat] : 0;
       String acting = (seat == actingIndex) ? " <- ACTING" : "";
-      sb.append("  seat=").append(seat).append(" [").append(seatRoleTag(seat)).append("] name=").append(pl.getName()).append(", inHand=")
-          .append(pl.inHand()).append(", chips=").append(pl.getChips()).append(", contributed=").append(contributed).append(", hole=")
+      sb.append("  seat=").append(seat).append(" [").append(seatRoleTag(seat)).append("] name=").append(pl.getName())
+          .append(", inHand=")
+          .append(pl.inHand()).append(", chips=").append(pl.getChips()).append(", contributed=").append(contributed)
+          .append(", hole=")
           .append(cardsToString(pl.getHand())).append(acting).append("\n");
     }
     sb.append("\n");
@@ -163,10 +171,13 @@ class PokerGame {
     Card[][] holeCards = p.deal(players.length);
     for (int i = 0; i < players.length; i++) {
       players[i].setHand(holeCards[i]);
-      // PHASE 8 COGNITIVE MATRIX: Increment hands played for tracked profiles
+      // PHASE 8/9 COGNITIVE MATRIX: Update profile each hand
       if (shouldTrackCognitivePlayer(players[i])) {
         String pName = players[i].getName();
-        PokerBot.getOrCreateCognitiveProfile(pName).handsPlayed++;
+        PokerBot.CognitiveProfile profile = PokerBot.getOrCreateCognitiveProfile(pName);
+        profile.handsPlayed++;
+        profile.currentStackBB = (blinds > 0) ? (double) players[i].getChips() / blinds : 100.0;
+        profile.ltmAlpha = PokerSimulator.ltmAlpha;
       }
     }
     currAction = new int[2];
@@ -251,7 +262,8 @@ class PokerGame {
         if (players[i] instanceof PokerBot) {
           turnHeader += "Their stack: ✨" + players[i].getChips() + "\n";
           System.out.print(turnHeader);
-          if (!skipMode) Utils.sleep(1000);
+          if (!skipMode)
+            Utils.sleep(1000);
         } else {
           System.out.print(turnHeader);
         }
@@ -409,7 +421,8 @@ class PokerGame {
           if (players[i] instanceof PokerBot) {
             turnHeader += "Their stack: ✨" + players[i].getChips() + "\n";
             System.out.print(turnHeader);
-            if (!skipMode) Utils.sleep(1000);
+            if (!skipMode)
+              Utils.sleep(1000);
           } else {
             System.out.print(turnHeader);
           }
@@ -417,8 +430,10 @@ class PokerGame {
           if (players[i] instanceof PokerBot) {
             PokerBot temp = (PokerBot) players[i];
             int livePot = pot.getTotalPot();
-            for(int c : currConts) livePot += c;
-            currAction = temp.action("postflop", currConts[i], currBet, blinds, lastRaise, boardForBot.toArray(new Card[j + 3]), livePot, players, i, preflopAggressorIndex, 0, 1);
+            for (int c : currConts)
+              livePot += c;
+            currAction = temp.action("postflop", currConts[i], currBet, blinds, lastRaise,
+                boardForBot.toArray(new Card[j + 3]), livePot, players, i, preflopAggressorIndex, 0, 1);
           } else {
             System.out.println("Are you " + players[i].getName() + "? Press Enter to confirm and show your hand...");
             Utils.flushInput();
@@ -445,7 +460,8 @@ class PokerGame {
           System.out.println(actionLog + "\n");
 
           roundHistory += turnHeader + actionLog + "\n\n";
-          if (!skipMode) Utils.sleep(1000);
+          if (!skipMode)
+            Utils.sleep(1000);
         }
 
         if (i == players.length - 1)
@@ -534,6 +550,7 @@ class PokerGame {
     for (int i = 0; i < players.length; i++) {
       if (players[i] == mainPlayer)
         mp.setChips(players[i].getChips());
+      
       if (players[i].getChips() > 0)
         players[i].setInHand(true);
       else if (players[i] != mainPlayer) {
@@ -574,11 +591,12 @@ class PokerGame {
           System.out.println(leavingName + " has left the table.");
         }
       } else if (players.length < 12) {
-        // Add a new bot
+        // PHASE 10: Spawn a new bot — God Bot tree or 7-archetype random
         PokerPlayer[] newPlayers = new PokerPlayer[players.length + 1];
-        for (int k = 0; k < players.length; k++)
-          newPlayers[k] = players[k];
-        PokerBot newBot = new PokerBot(players);
+        for (int k = 0; k < players.length; k++) newPlayers[k] = players[k];
+
+        PokerBot newBot = PokerBot.createLiveGameBot(players);
+        
         newPlayers[players.length] = newBot;
         players = newPlayers;
         System.out.println("A new player has joined the table: " + newBot.getName() + "!");
@@ -603,12 +621,9 @@ class PokerGame {
   private boolean shouldTrackCognitivePlayer(PokerPlayer player) {
     if (player == null)
       return false;
-    if (!(player instanceof PokerBot))
-      return true; // Always track humans
-    if (PokerBot.testLearnFromBots)
-      return true; // Test mode: include Dumb/Smart bots too
-    return ((PokerBot) player).getBotLevel() == 2; // Production mode: only God bots
+    return true; // PHASE 10: Track everyone so matrix can profile all opponents
   }
+
 
   private void resetHuSmartLeakTracking() {
     huSmartGod = false;
@@ -674,7 +689,8 @@ class PokerGame {
     huRiverLargeBetResponsePending = false;
   }
 
-  private void markPreflopActionForTelemetry(int playerIndex, int preActionTableBet, int preActionContribution, int paid) {
+  private void markPreflopActionForTelemetry(int playerIndex, int preActionTableBet, int preActionContribution,
+      int paid) {
     if (currentStreet != 0 || preflopVPIPFlags == null || preflopPFRFlags == null)
       return;
     if (playerIndex < 0 || playerIndex >= players.length)
@@ -720,7 +736,8 @@ class PokerGame {
     return "AFq_Preflop";
   }
 
-  private void markPostflopActionForTelemetry(int playerIndex, int preActionTableBet, int preActionContribution, int paid) {
+  private void markPostflopActionForTelemetry(int playerIndex, int preActionTableBet, int preActionContribution,
+      int paid) {
     if (currentStreet < 1 || currentStreet > 3)
       return;
     if (postflopAggressionActions == null || postflopAggressionOpportunities == null)
@@ -730,7 +747,8 @@ class PokerGame {
     if (!shouldTrackCognitivePlayer(players[playerIndex]))
       return;
 
-    boolean isAggressiveAction = (currAction[0] == 3 || currAction[0] == 4) && currConts[playerIndex] > preActionTableBet;
+    boolean isAggressiveAction = (currAction[0] == 3 || currAction[0] == 4)
+        && currConts[playerIndex] > preActionTableBet;
     boolean isCall = (currAction[0] == 1 && paid > 0);
     boolean isFoldFacingBet = (currAction[0] == 2 && preActionTableBet > preActionContribution);
 
@@ -801,55 +819,67 @@ class PokerGame {
     boolean actorIsHuGod = huSmartGod && i == huGodIdx;
 
     if (!(players[i] instanceof PokerBot)) {
-       String actionLabel = "UNKNOWN";
-       int amount = currAction[1];
-       if (currAction[0] == 1) { 
-           actionLabel = (amount == 0 && currConts[i] == currBet) ? "CHECK" : "CALL";
-       } else if (currAction[0] == 2) {
-           actionLabel = "FOLD";
-           amount = 0;
-       } else if (currAction[0] >= 3) {
-           actionLabel = (currAction[0] == 4) ? "ALL-IN" : "BET/RAISE";
-       }
-       BotDiagnostics.recordPlayerDecision((currentStreet == 0 ? "PREFLOP" : (currentStreet == 1 ? "FLOP" : (currentStreet == 2 ? "TURN" : "RIVER"))),
-              players[i].getName(), actionLabel, currConts[i] + amount,
-              "tableBet=" + currBet + ", prevBet=" + currConts[i]);
+      String actionLabel = "UNKNOWN";
+      int amount = currAction[1];
+      if (currAction[0] == 1) {
+        actionLabel = (amount == 0 && currConts[i] == currBet) ? "CHECK" : "CALL";
+      } else if (currAction[0] == 2) {
+        actionLabel = "FOLD";
+        amount = 0;
+      } else if (currAction[0] >= 3) {
+        actionLabel = (currAction[0] == 4) ? "ALL-IN" : "BET/RAISE";
+      }
+      BotDiagnostics.recordPlayerDecision(
+          (currentStreet == 0 ? "PREFLOP" : (currentStreet == 1 ? "FLOP" : (currentStreet == 2 ? "TURN" : "RIVER"))),
+          players[i].getName(), actionLabel, currConts[i] + amount,
+          "tableBet=" + currBet + ", prevBet=" + currConts[i]);
     }
-    
+
     switch (currAction[0]) {
       case 1: // CALL/CHECK
         paid = pot.addPlayerContribution(i, currAction[1]);
         currConts[i] += paid;
-        if (players[i] == mainPlayer) mp.addBet(paid);
-        
+        if (players[i] == mainPlayer)
+          mp.addBet(paid);
+
         if (players[i].status() == 2) {
-          if (paid > 0) log = players[i].getName() + " in big blind CALLS FOR ✨" + currConts[i] + ".";
-          else log = players[i].getName() + " in big blind CHECKS.";
+          if (paid > 0)
+            log = players[i].getName() + " in big blind CALLS FOR ✨" + currConts[i] + ".";
+          else
+            log = players[i].getName() + " in big blind CHECKS.";
         } else {
-          if (paid > 0) log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "CALLS FOR ✨" + currConts[i] + ".";
-          else log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "CHECKS.";
+          if (paid > 0)
+            log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "CALLS FOR ✨"
+                + currConts[i] + ".";
+          else
+            log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "CHECKS.";
         }
         break;
-        
+
       case 2: // FOLD
         players[i].setInHand(false);
-        if (players[i].status() == 2) log = players[i].getName() + " in big blind FOLDS.";
-        else log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "FOLDS.";
+        if (players[i].status() == 2)
+          log = players[i].getName() + " in big blind FOLDS.";
+        else
+          log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : " ") + "FOLDS.";
         break;
-        
+
       default: // BET/RAISE/ALL-IN
-        if (players[i] == mainPlayer && currAction[0] == 4) mp.allIn();
-        
+        if (players[i] == mainPlayer && currAction[0] == 4)
+          mp.allIn();
+
         // Actually move the chips
         paid = pot.addPlayerContribution(i, currAction[1]);
         currConts[i] += paid;
-        if (players[i] == mainPlayer) mp.addBet(paid);
+        if (players[i] == mainPlayer)
+          mp.addBet(paid);
 
         // Determine action name for log
         String actionVerb = (currAction[0] == 4) ? "GOES ALL IN FOR" : (currBet == 0 ? "BETS" : "RAISES TO");
-        
+
         // Log based on ACTUAL contribution
-        log = players[i].getName() + ((players[i].status() == 1) ? " in small blind " : (players[i].status() == 2 ? " in big blind " : " "))
+        log = players[i].getName()
+            + ((players[i].status() == 1) ? " in small blind " : (players[i].status() == 2 ? " in big blind " : " "))
             + actionVerb + " ✨" + currConts[i] + ".";
 
         // Update table bet state
@@ -858,19 +888,19 @@ class PokerGame {
           lastPlayer = i; // Ensure everyone responds to the new bet amount
           // Only change the minimum raise size if it's a FULL raise
           if (increment >= lastRaise) {
-              lastRaise = increment;
+            lastRaise = increment;
           }
 
           // PHASE 8 COGNITIVE MATRIX TRACKING (Only run for Humans)
           if (!(players[i] instanceof PokerBot)) {
-             String pName = players[i].getName();
-             PokerBot.CognitiveProfile profile = PokerBot.getOrCreateCognitiveProfile(pName);
-             // Massive overbets or jams
-             if (currAction[0] == 4 || increment > currBet * 1.5) {
-               profile.aggressiveActions += 2;
-             } else {
-               profile.aggressiveActions += 1;
-             }
+            String pName = players[i].getName();
+            PokerBot.CognitiveProfile profile = PokerBot.getOrCreateCognitiveProfile(pName);
+            // Massive overbets or jams
+            if (currAction[0] == 4 || increment > currBet * 1.5) {
+              profile.aggressiveActions += 2;
+            } else {
+              profile.aggressiveActions += 1;
+            }
           }
           currBet = currConts[i];
         }
@@ -909,7 +939,8 @@ class PokerGame {
         if (huTurnFirstActor == -1) {
           huTurnFirstActor = i;
           huTurnFirstActorChecked = actionIsCheck;
-        } else if (!huTurnCheckBackObserved && actorIsHuSmart && huTurnFirstActor == huGodIdx && huTurnFirstActorChecked) {
+        } else if (!huTurnCheckBackObserved && actorIsHuSmart && huTurnFirstActor == huGodIdx
+            && huTurnFirstActorChecked) {
           PokerBot.observeSmartTurnCheckBackHU(huSmartName, actionIsCheck);
           huTurnCheckBackObserved = true;
         }
