@@ -126,12 +126,10 @@ public final class BotDiagnostics {
     if (context != null && context.handNumber >= 0) {
       return context.handNumber;
     }
-
-    PokerGame game = PokerGame.getActiveGame();
-    if (game == null) {
-      return -1;
-    }
-    return game.getCurrentHandNumber();
+    // PokerGame fallback removed — only the simulator pipeline is supported
+    // in the research repo. SimulatorContext is always populated by SimEngine
+    // before diagnostics are emitted, so this fallback never fires in practice.
+    return -1;
   }
 
   private static String currentStreetLabel() {
@@ -139,24 +137,8 @@ public final class BotDiagnostics {
     if (context != null && context.street != null && !context.street.isEmpty()) {
       return context.street;
     }
-
-    PokerGame game = PokerGame.getActiveGame();
-    if (game == null) {
-      return "UNKNOWN";
-    }
-
-    switch (game.currentStreet) {
-      case 0:
-        return "PREFLOP";
-      case 1:
-        return "FLOP";
-      case 2:
-        return "TURN";
-      case 3:
-        return "RIVER";
-      default:
-        return "UNKNOWN";
-    }
+    // PokerGame fallback removed (see currentHandNumber).
+    return "UNKNOWN";
   }
 
   private static String currentModeLabel() {
